@@ -1584,10 +1584,15 @@ let rec run' ctxt (vms : vm list) =
                         end
 
                     | MConstr (Munify, (_,_, uni, x, y, ts, tf)) ->
+                        let t = System.get_time () in
                         let x, y, uni = to_econstr x, to_econstr y, to_econstr uni in
+
                         begin
                           let open UnificationStrategy in
-                          match unify None sigma env uni Reduction.CONV x y with
+                          let ur = unify None sigma env uni in
+                          let t' = System.get_time () in
+                          Feedback.msg_debug (Pp.str (Printf.sprintf "%f" (System.time_difference t t')));
+                          match ur Reduction.CONV x y with
                           | Evarsolve.Success sigma, _ ->
                               (run'[@tailcall]) {ctxt with sigma = sigma} (Code ts :: vms)
                           | _, _ ->
