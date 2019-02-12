@@ -50,6 +50,32 @@ let constr_to_string (sigma: Evd.evar_map) env t =
 let of_econstr e = CClosure.inject (EConstr.Unsafe.to_constr e)
 let to_econstr f = EConstr.of_constr (CClosure.term_of_fconstr f)
 
+(** [decompose_app] for [fconstr] *)
+let f_decompose_app sigma (t : fconstr) =
+  match fterm_of t with
+  | CClosure.FApp (h, args) -> (h, args)
+  | CClosure.FCLOS (t, env) ->
+      let (h, args) = EConstr.decompose_app sigma (EConstr.of_constr t) in
+      let args = List.map (fun t -> mk_clos env (EConstr.Unsafe.to_constr t)) args in
+      (mk_clos env (EConstr.Unsafe.to_constr h), Array.of_list (args))
+  (* | CClosure.FRel _ -> Feedback.msg_debug (Pp.str "FRel"); (t, [||])
+   * | CClosure.FAtom _ -> Feedback.msg_debug (Pp.str "FAtom"); (t, [||])
+   * | CClosure.FFlex _ -> Feedback.msg_debug (Pp.str "FFlex"); (t, [||])
+   * | CClosure.FInd _ -> Feedback.msg_debug (Pp.str "FInd"); (t, [||])
+   * | CClosure.FConstruct _ -> Feedback.msg_debug (Pp.str "FConstruct"); (t, [||])
+   * | CClosure.FProj (_, _) -> Feedback.msg_debug (Pp.str "FProj"); (t, [||])
+   * | CClosure.FFix (_, _) -> Feedback.msg_debug (Pp.str "FFix"); (t, [||])
+   * | CClosure.FCoFix (_, _) -> Feedback.msg_debug (Pp.str "FCoFix"); (t, [||])
+   * | CClosure.FCaseT (_, _, _, _, _) -> Feedback.msg_debug (Pp.str "FCaseT"); (t, [||])
+   * | CClosure.FLambda (_, _, _, _) -> Feedback.msg_debug (Pp.str "FLambda"); (t, [||])
+   * | CClosure.FProd (_, _, _, _) -> Feedback.msg_debug (Pp.str "FProd"); (t, [||])
+   * | CClosure.FLetIn (_, _, _, _, _) -> Feedback.msg_debug (Pp.str "FLetIn"); (t, [||])
+   * | CClosure.FEvar (_, _) -> Feedback.msg_debug (Pp.str "FEvar"); (t, [||])
+   * | CClosure.FInt _ -> Feedback.msg_debug (Pp.str "FInt"); (t, [||])
+   * | CClosure.FLIFT (_, _) -> Feedback.msg_debug (Pp.str "FLIFT"); (t, [||])
+   * | CClosure.FLOCKED -> Feedback.msg_debug (Pp.str "FLOCKED"); (t, [||]) *)
+  | _ -> (t, [||])
+
 
 open MtacNames
 
@@ -1743,9 +1769,11 @@ let rec run' ctxt (vms : vm list) =
 
                     | MConstr (Mdecompose_app', (_, _, _, uni, t, c, cont_success, cont_failure)) ->
                         (* : A B m uni a C cont  *)
-                        let (t_head, t_args) = decompose_app sigma (to_econstr t) in
-                        let (c_head, c_args) = decompose_app sigma (to_econstr c) in
-                        if eq_constr_nounivs sigma t_head c_head then
+                        let (t_head, t_args) = f_decompose_app sigma t in
+                        let (c_head, c_args) = f_decompose_app sigma c in
+                        (* Feedback.msg_debug (Printer.pr_econstr_env env sigma (to_econstr t_head));
+                         * Feedback.msg_debug (Printer.pr_econstr_env env sigma (to_econstr c_head)); *)
+                        if eq_constr_nounivs sigma (to_econstr t_head) (to_econstr c_head) then
                           let uni = to_econstr uni in
                           (* We need to capture the initial sigma here, as
                              unification of initial arguments will yield new
@@ -1758,7 +1786,7 @@ let rec run' ctxt (vms : vm list) =
                             | c_h :: c_args ->
                                 match t_args with
                                 | t_h :: t_args ->
-                                    let (unires, _) = UnificationStrategy.unify None sigma env uni Reduction.CONV (to_econstr t_h) c_h in
+                                    let (unires, _) = UnificationStrategy.unify None sigma env uni Reduction.CONV (to_econstr t_h) (to_econstr c_h) in
                                     begin
                                       match unires with
                                       | Success (sigma) -> traverse sigma t_args c_args
@@ -1770,7 +1798,7 @@ let rec run' ctxt (vms : vm list) =
                                     (* efail (E.mkWrongTerm sigma env c_head) *)
                                     fail ()
                           in
-                          traverse sigma (List.map of_econstr t_args) c_args
+                          traverse sigma ((Array.to_list t_args)) (Array.to_list c_args)
                         else
                           (* efail (E.mkWrongTerm sigma env c_head) *)
                           (run'[@tailcall]) ctxt (upd cont_failure)
