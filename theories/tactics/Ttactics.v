@@ -268,14 +268,43 @@ Definition match_goal_context
   | mNone => M.raise DoesNotMatchGoal
   end.
 
+Definition match_goal_timer : Prop. exact True. Qed.
+Definition exact_dep (g: goal gs_open) : forall (p : goal_type_pure g), t bool :=
+  match g with
+  | @Metavar s A x =>
+    fun p =>
+      let g := dreduce (@goal_evar_pure) (goal_evar_pure g) in
+M.start_timer (@match_goal_timer) false;;
+      o <- M.unify g p UniMatchNoRed;
+M.stop_timer (@match_goal_timer);;
+      match o with
+      | mSome _ => M.ret true
+      | mNone => M.ret false
+      end
+  end%MC.
 Fixpoint match_goal_pattern'
     (u : Unification) (p : goal_pattern) : mlist Hyp -> mlist Hyp -> tactic :=
   fix go l1 l2 g :=
   match p, l2 with
   | gbase P t, _ =>
-    gT <- M.goal_type g;
-    mif M.cumul u P gT then (r <- t; to_T r g)
-    else M.raise DoesNotMatchGoal
+    f <- M.unify_univ P (goal_type_pure g) u;
+    match f with
+    | mSome f =>
+      ''(m: p, gs) <- t;
+      let fp := reduce (RedOneStep [rl:RedBeta]) (f p) in
+              b <- exact_dep g fp;
+             if b then
+               gs <- M.map (fun x => M.ret (mpair tt x)) gs;
+               M.ret gs
+             else M.raise DoesNotMatch
+    | mNone => M.raise DoesNotMatch
+    end
+    (* if f  then (r <- t; *)
+
+    (* M.start_timer (@match_goal_timer) false;; *)
+    (*            gs <- to_T r g; *)
+    (* M.stop_timer (@match_goal_timer);; M.ret gs) *)
+    (* else M.raise DoesNotMatchGoal *)
   | gbase_context x t, _ =>
     gT <- M.goal_type g;
     match_goal_context x gT t g

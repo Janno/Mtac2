@@ -853,6 +853,23 @@ Definition goal_type (g : goal gs_open) : t Type :=
       | SType => fun A => ret A end A
   end.
 
+Definition goal_type_pure (g : goal gs_open) : Type :=
+  match g with
+  | @Metavar s A x =>
+    match s as s return stype_of s -> Type with
+      | SProp => fun A => (A:Type)
+      | SType => fun A => A end A
+  end.
+
+Definition goal_evar_pure (g : goal gs_open) : goal_type_pure g :=
+  match g with
+  | @Metavar s A x =>
+    match s as s return forall (A : stype_of s) (x : A), goal_type_pure (@Metavar s A x) with
+      | SProp => fun A x => x
+      | SType => fun A x => x end A x
+  end.
+
+
 (** [goal_prop g] extracts the prop of the goal or raises [CantCoerce] its type
 can't be cast to a Prop. *)
 Definition goal_prop (g : goal gs_open) : t Prop :=
