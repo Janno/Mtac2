@@ -84,7 +84,7 @@ type 'a mconstr_head =
   | Mprint_timer : (arg_type * arg_any) mconstr_head
   | Mkind_of_term : (arg_type * arg_any) mconstr_head
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
-  | Mdeclare_mind : (arg_any * arg_any * arg_any) mconstr_head
+  | Mdeclare_mind : (arg_any * arg_any * arg_any * arg_any) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
@@ -146,7 +146,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mprint_timer -> 2
   | Mkind_of_term -> 2
   | Mreplace -> 6
-  | Mdeclare_mind -> 3
+  | Mdeclare_mind -> 4
 
 
 let _mkconstr s = lazy (let (_, c) = mkUConstr ("M.M." ^ s) Evd.empty (Global.env ()) in c)
@@ -649,4 +649,4 @@ let mconstr_of (type a) args (h : a mconstr_head) =
   | Mreplace ->
       MConstr (Mreplace, (args 0, args 1, args 2, args 3, args 4, args 5))
   | Mdeclare_mind ->
-      MConstr (Mdeclare_mind, (args 0, args 1, args 2))
+      MConstr (Mdeclare_mind, (args 0, args 1, args 2, args 3))

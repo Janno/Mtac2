@@ -21,7 +21,7 @@ Definition get_ind_cts (A : Type) (offset : nat) : M (nat * {s : Sort & { it : I
   let constrs := mskipn offset constrs in
   atele <- get_ind_atele it nparams nindx A;
                (* Compute CTeles *)
-  cts <- M.map (fun c_dyn : dyn =>
+  cts <- M.map (fun '(mkConstr_dyn c_dyn _) =>
     dcase c_dyn as dtype, delem in
     let ty_c := reduce (RedWhd RedAll) (S.stype_of isort) in
     ty <- M.evar ty_c;

@@ -182,7 +182,7 @@ Definition cclear {A B} (x:A) (cont : gtactic B) : gtactic B := fun g=>
 Definition clear {A} (x : A) : tactic := cclear x idtac.
 
 Definition apply_params_to_constructors (ind_applied : dyn) (i : Ind_dyn) : M (mlist dyn) :=
-  let '(mkInd_dyn _ nparams _ l) := i in
+  let '(mkInd_dyn _ _ nparams _ l) := i in
   rev_params <-
    (mfix3 go (ind_dyn : _) (acc : _) (n : nat) : M (mlist dyn) :=
       match n with
@@ -208,7 +208,7 @@ Definition apply_params_to_constructors (ind_applied : dyn) (i : Ind_dyn) : M (m
             end
           end
       ) in
-  M.map (apply_rev_params rev_params) l.
+  M.map (fun '(mkConstr_dyn c _) => apply_rev_params rev_params c) l.
 
 
 Definition destruct {A : Type} (n : A) : tactic := fun g =>
@@ -220,7 +220,7 @@ Definition destruct {A : Type} (n : A) : tactic := fun g =>
     P <- M.Cevar (A->s) ctx;
     let Pn := P n in
     M.unify_or_fail UniCoq Pn gT;;
-    '(mkInd_dyn _ _ _ l as i) <- M.constrs A;
+    '(mkInd_dyn _ _ _ _ l as i) <- M.constrs A;
     l <- apply_params_to_constructors (Dyn A) i;
     l <- M.map (fun d : dyn =>
       (* a constructor c has type (forall x, ... y, A) and we return
@@ -666,7 +666,8 @@ Definition apply_one_of (l : mlist dyn) : tactic :=
 
 (** Tries to apply each constructor of the goal type *)
 Definition constructor : tactic :=
-  '(mkInd_dyn _ _ _ l) <- M.constrs =<< goal_type;
+  '(mkInd_dyn _ _ _ _ l) <- M.constrs =<< goal_type;
+  l <- M.map (fun '(mkConstr_dyn c _) => M.ret c) l;
   apply_one_of l.
 
 Definition apply_in {P Q} (c : P -> Q) (H : P) : tactic :=
@@ -689,16 +690,16 @@ Definition nconstructor (n : nat) : tactic :=
   match n with
   | 0 => M.raise ConstructorsStartsFrom1
   | S n =>
-    '(mkInd_dyn _ _ _ l) <- M.constrs A;
+    '(mkInd_dyn _ _ _ _ l) <- M.constrs A;
     match mnth_error l n with
-    | mSome d => dcase d as x in apply x
+    | mSome (mkConstr_dyn d _) => dcase d as x in apply x
     | mNone => raise CantFindConstructor
     end
   end.
 
 Definition split : tactic :=
   A <- goal_type;
-  '(mkInd_dyn _ _ _ l) <- M.constrs A;
+  '(mkInd_dyn _ _ _ _ l) <- M.constrs A;
   match l with
   | [m:_] => nconstructor 1
   | _ => raise Not1Constructor
@@ -706,17 +707,17 @@ Definition split : tactic :=
 
 Definition left : tactic :=
   A <- goal_type;
-  '(mkInd_dyn _ _ _ l) <- M.constrs A;
+  '(mkInd_dyn _ _ _ _ l) <- M.constrs A;
   match l with
-  | d :m: [m: _ ] => dcase d as x in apply x
+  | (mkConstr_dyn d _) :m: [m: _ ] => dcase d as x in apply x
   | _ => raise Not2Constructor
   end.
 
 Definition right : tactic :=
   A <- goal_type;
-  '(mkInd_dyn _ _ _ l) <- M.constrs A;
+  '(mkInd_dyn _ _ _ _ l) <- M.constrs A;
   match l with
-  | _ :m: [m: d] => dcase d as x in apply x
+  | _ :m: [m: mkConstr_dyn d _] => dcase d as x in apply x
   | _ => raise Not2Constructor
   end.
 

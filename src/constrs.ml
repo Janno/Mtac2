@@ -472,7 +472,23 @@ module CoqInd_Dyn = struct
     | None -> raise NotAmkInd_dyn
     | Some args -> args
 
-  let to_coq sigma env =
-    build_app mkInd_dyn sigma env
+  let to_coq = build_app mkInd_dyn
+
+end
+
+module CoqConstr_Dyn = struct
+  open UConstrBuilder
+  let mkConstr_dyn = from_string "Mtac2.intf.Case.mkConstr_dyn"
+
+  exception NotAmkConstr_dyn
+
+  let from_coq sigma env cterm =
+    match from_coq mkConstr_dyn (env, sigma) cterm with
+    | None -> raise NotAmkConstr_dyn
+    | Some args -> args
+
+  let to_coq = build_app mkConstr_dyn
+
+  let mkType sigma env = build_app (from_string "Mtac2.intf.Case.Constr_dyn") sigma env [||]
 
 end

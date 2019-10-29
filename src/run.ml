@@ -675,29 +675,35 @@ let get_Constrs (env, sigma) t =
   (* let t = to_constr sigma t in *)
   let t_type, args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr t))) in
   if isInd sigma t_type then
-    let (mind, ind_i), _ = destInd sigma t_type in
+    let (mind, ind_i), instance = destInd sigma t_type in
+    let name = Nametab.basename_of_global (Names.GlobRef.IndRef (mind, ind_i)) in
+    let name = Names.Id.to_string name in
     let mbody = Environ.lookup_mind mind env in
     let ind = Array.get (mbody.mind_packets) ind_i in
     let sigma, dyn = mkdyn sigma env in
+    let sigma, constr_dyn = CoqConstr_Dyn.mkType sigma env in
     (* let args = CList.firstn mbody.mind_nparams_rec args in *)
     let sigma, l = Array.fold_right
                      (fun i (sigma, l) ->
                         let constr = Names.ith_constructor_of_inductive (mind, ind_i) i in
-                        let coq_constr = mkConstruct constr in
+                        let name = Nametab.basename_of_global (Names.GlobRef.ConstructRef ((mind, ind_i),i)) in
+                        let name = Names.Id.to_string name in
+                        let coq_constr = mkConstructU (constr, instance) in
                         let ty = Retyping.get_type_of env sigma coq_constr in
                         let sigma, dyn_constr = mkDyn ty coq_constr sigma env in
-                        CoqList.mkCons sigma env dyn dyn_constr l
+                        let sigma, constr = CoqConstr_Dyn.to_coq sigma env [|dyn_constr; CoqString.to_coq name|] in
+                        CoqList.mkCons sigma env constr_dyn constr l
                      )
                      (* this is just a dirty hack to get the indices of constructors *)
                      (Array.mapi (fun i t -> i+1) ind.mind_consnames)
-                     (CoqList.mkNil sigma env dyn)
+                     (CoqList.mkNil sigma env constr_dyn)
     in
     let indty = t_type in
     let indtyty = Retyping.get_type_of env sigma indty in
     let nparams = CoqN.to_coq (mbody.mind_nparams) in
     let nindices = CoqN.to_coq (ind.mind_nrealargs) in
     let sigma, indtydyn = mkDyn indtyty indty sigma env in
-    let sigma, ind_dyn = CoqInd_Dyn.to_coq sigma env [|indtydyn; nparams; nindices; l|] in
+    let sigma, ind_dyn = CoqInd_Dyn.to_coq sigma env [|indtydyn; CoqString.to_coq name; nparams; nindices; l|] in
     (* let sigma, listty = CoqList.mkType sigma env dyn in
      * let sigma, pair = CoqPair.mkPair sigma env dyn listty indtydyn l in *)
     Some (sigma, ind_dyn)
@@ -1067,18 +1073,24 @@ let mTele_to_foralls sigma env tele funs b =
   sigma, n_args, arity
 
 
-let rec zip = function
-  | ([], []) -> []
-  | (x::l1, y::l2) -> (x,y):: zip (l1, l2)
-  | _ -> raise (Failure "zip called with lists of unequal length.")
+(* let rec zip = function
+ *   | ([], []) -> []
+ *   | (x::l1, y::l2) -> (x,y):: zip (l1, l2)
+ *   | _ -> raise (Failure "zip called with lists of unequal length.")
+ *
+ * let rec unzip = function
+ *   | [] -> [], []
+ *   | (x,y)::l ->
+ *       let l1,l2 = unzip l in
+ *       (x :: l1, y::l2) *)
 
-let rec unzip = function
-  | [] -> [], []
-  | (x,y)::l ->
-      let l1,l2 = unzip l in
-      (x :: l1, y::l2)
+let push_types env idl rl tl =
+  let open Context.Rel.Declaration in
+  List.fold_left3 (fun env id r t -> EConstr.push_rel (LocalAssum (make_annot (Name id) r,t)) env)
+    env idl rl tl
 
-let declare_mind env sigma params sigs mut_constrs =
+let declare_mind env sigma poly params sigs mut_constrs =
+  let poly = CoqBool.from_coq sigma poly in
   let vars = vars_of_env env in
   (* Calculate length and LocalEntry list from parameter telescope.
      The LocalEntry list is reversed because we are using a left fold.
@@ -1091,17 +1103,11 @@ let declare_mind env sigma params sigs mut_constrs =
       in
       let vars = Id.Set.add id vars in
       let params = (name, typeX):: params in
-      (n+1, (Context.Rel.Declaration.LocalAssum (nameR id, EConstr.to_constr sigma typeX))::acc, vars, params)
+      (n+1, (Context.Rel.Declaration.LocalAssum (nameR id, typeX))::acc, vars, params)
     ) (0, [], vars, []) params in
 
   let params_rev = params in
   let params = List.rev params in
-
-  let _param_env =
-    List.fold_left (fun param_env (name, typeX) ->
-      Environ.push_rel (Context.Rel.Declaration.LocalAssum (name, EConstr.to_constr sigma typeX)) param_env
-    ) env params
-  in
 
   (* let mind_entry_params = List.rev mind_entry_params in *)
   let sigma, inds = CoqList.from_coq_conv sigma env (
@@ -1109,29 +1115,31 @@ let declare_mind env sigma params sigs mut_constrs =
       let (name, ind_sig) = CoqPair.from_coq (env, sigma) t in
       (* print_constr sigma env t; *)
       (* print_constr sigma env ind_sig; *)
-      let (ind_tele, ind_ty) = CoqSigT.from_coq sigma env (strip_lambdas sigma ind_sig  n_params) in
-      let sigma, n_ind_args, ind_arity = mTele_to_foralls sigma env ind_tele ind_ty (fun sigma _ t ->
+      let (ind_sort, ind_tele) = CoqPair.from_coq (env, sigma) ind_sig in
+      let ind_tele = (strip_lambdas sigma ind_tele n_params) in
+      let sigma, ind_sort = (
         let open CoqSort in
-        match CoqSort.from_coq sigma env t with
+        match CoqSort.from_coq sigma env ind_sort with
         | Prop_sort -> sigma, mkProp
         | Type_sort ->
             let sigma, univ = Evd.new_univ_variable (Evd.UnivFlexible false) sigma in
             sigma, mkType univ
       ) in
+      let (n_ind_args, ind_arity_binders) =
+        mTele_fold_left sigma env
+          (fun (n, ind_sort) (name, ty) -> (n+1, (name, ty)::ind_sort))
+          (0, [])
+          ind_tele
+      in
+      let ind_arity = List.fold_left (fun t (name, ty) -> EConstr.mkProd (name, ty, t)) ind_sort ind_arity_binders in
+      (* let sigma, n_ind_args, ind_arity = mTele_to_foralls sigma env ind_tele ind_ty (fun sigma _ t ->
+       * ) in *)
       let name = CoqString.from_coq (env, sigma) name in
       let name = Id.of_string name in
       let ind_arity_full = List.fold_left (fun arity (name, typeX) -> mkProd (name, typeX, arity)) ind_arity params_rev in
-      (sigma, (name, n_ind_args, ind_ty, ind_arity, ind_arity_full))
+      (sigma, (name, n_ind_args, ind_arity, ind_arity_full, ind_sort))
   ) sigs in
 
-  let ind_env = List.fold_left (fun ind_env (name, _,_, _, ind_arity_full) ->
-    Environ.push_rel (Context.Rel.Declaration.LocalAssum (nameR name, EConstr.to_constr sigma ind_arity_full)) ind_env
-  ) env inds in
-  let _ind_env =
-    List.fold_left (fun param_env (name, typeX) ->
-      Environ.push_rel (Context.Rel.Declaration.LocalAssum (name, EConstr.to_constr sigma typeX)) param_env
-    ) ind_env params
-  in
 
   (* Feedback.msg_debug (Pp.str "inductives:");
    * Feedback.msg_debug (Printer.pr_context_of param_env sigma);
@@ -1149,7 +1157,7 @@ let declare_mind env sigma params sigs mut_constrs =
   (* let param_args = fold_nat (fun k acc -> mkRel (n_params + n_inds - k + 1) :: acc) [] n_params in *)
   let param_args = List.mapi (fun i (name, typeX) -> mkRel (n_params - i)) params in
   (* Convert [constrs], now an [n_inds]-tuple of lists, into a list *)
-  let sigma, _, constrs, unit_leftover = List.fold_left (fun (sigma, k_ind, acc, mut_constrs)(_, n_ind_args, _, _,_)  ->
+  let sigma, _, constrs, unit_leftover = List.fold_left (fun (sigma, k_ind, acc, mut_constrs)(_, n_ind_args, _,_,_)  ->
     (* print_constr sigma env mut_constrs; *)
     (* Feedback.msg_debug (Pp.int n_ind_args); *)
     let constrs, mut_constrs = CoqPair.from_coq (env, sigma) mut_constrs in
@@ -1158,12 +1166,12 @@ let declare_mind env sigma params sigs mut_constrs =
       let name, constr = CoqPair.from_coq (env, sigma) constr in
       let (constr_tele, constr_type) = CoqSigT.from_coq sigma env constr in
       let sigma, n_constr_args, constr_type = mTele_to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
-        let leftover_unit, args = fold_nat (fun _ (t, acc) ->
+        let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
           (* print_constr sigma env t; *)
           let (arg, t) = CoqSigT.from_coq sigma env t in
           (t, arg::acc)
         ) (t, []) (n_ind_args) in
-        sigma, EConstr.applist (EConstr.mkRel (n_params + n_inds - k_ind + n_constr_args), List.map (EConstr.Vars.lift n_constr_args) param_args @ rev args)
+        sigma, EConstr.applist (EConstr.mkRel (n_params + n_inds - k_ind + n_constr_args), List.map (EConstr.Vars.lift n_constr_args) param_args @ rev rev_args)
       )
       in
       let name = CoqString.from_coq (env, sigma) name in
@@ -1188,28 +1196,72 @@ let declare_mind env sigma params sigs mut_constrs =
    *   ) constrs
    * ); *)
   (* List.iter (List.iter (fun (name, constr) -> print_constr sigma ind_env constr)) constrs; *)
-  let open Entries in
-  let mind_entry_inds = List.fold_left (fun acc ((mind_entry_typename, n_ind_args, _, mind_entry_arity, _), constrs) ->
-    let mind_entry_consnames, mind_entry_lc = unzip constrs in
-    let mind_entry_lc = List.map (EConstr.to_constr sigma) mind_entry_lc in
-    let mind_entry_arity = EConstr.to_constr sigma mind_entry_arity in
-    let mind_entry_template = false in
-    {mind_entry_typename;
-     mind_entry_arity;
-     mind_entry_template;
-     mind_entry_consnames;
-     mind_entry_lc} :: acc
-  ) [] (zip (inds, constrs)) in
-  let mind_entry_inds = List.rev mind_entry_inds in
-  let _ = DeclareInd.declare_mutual_inductive_with_eliminations
-            {mind_entry_record=None;
-             mind_entry_finite=Declarations.Finite;
-             mind_entry_inds;
-             mind_entry_params;
-             mind_entry_universes=Evd.univ_entry ~poly:false sigma;
-             mind_entry_cumulative=false;
-             mind_entry_private=None;
-            } UnivNames.empty_binders [] in
+  let indnames = List.map (fun (name, _, _, _, _) -> name) inds in
+  let arities = List.map (fun (_,_,arities,_,_) -> arities) inds in
+  let arityconcl = List.map (fun (_, _, _, arity_concl,_) -> None) inds in
+  let constructors = List.map (fun vscs ->
+    let vscsimpls = List.map (fun (v, c) -> (v, EConstr.Unsafe.to_constr c, [])) vscs in
+    List.split3 vscsimpls
+  ) constrs in
+
+  (* TODO: compute from sorts *)
+  let relevances = List.map (fun _ -> Sorts.Relevant) inds in
+  let fullarities = List.map (fun c -> EConstr.it_mkProd_or_LetIn c mind_entry_params) arities in
+  let env_ar = push_types env indnames relevances fullarities in
+  let env_ar_params = EConstr.push_rel_context mind_entry_params env_ar in
+  (* let env_ar_params = env_ar in *)
+  let (mie, univs) = ComInductive.interp_mutual_inductive_constr
+                       ~sigma
+                       ~template:(None)
+                       ~udecl:(UState.default_univ_decl)
+                       ~indnames
+                       ~ctx_params:(mind_entry_params)
+                       ~arities
+                       ~arityconcl
+                       ~constructors
+                       ~env_ar_params
+                       ~cumulative:(false)
+                       ~poly:(poly)
+                       ~private_ind:(false)
+                       ~finite:(Declarations.Finite)
+  in
+  let _ = ComInductive.declare_mutual_inductive_with_eliminations mie univs [] in
+
+  (* let open Entries in
+   * ComInductive.interp_mutual_inductive_constr
+   * let restricted_sigma, (mind_entry_params, mind_entry_inds) =
+   *   Evarutil.finalize ~abort_on_undefined_evars:(true) sigma (fun nf ->
+   *     (\* iterate over [mind_entry_params] to register all universes. *\)
+   *     let open Context.Rel in
+   *     let mind_entry_params = List.map (Declaration.map_constr_het nf) (mind_entry_params) in
+   *     mind_entry_params,
+   *     List.fold_left (fun list ((mind_entry_typename, n_ind_args, mind_entry_arity, _), constrs) ->
+   *       let mind_entry_consnames, mind_entry_lc = unzip constrs in
+   *       let mind_entry_lc = List.map (nf) mind_entry_lc in
+   *       let mind_entry_arity = nf mind_entry_arity in
+   *       let mind_entry_template = false in
+   *       ({mind_entry_typename;
+   *                mind_entry_arity;
+   *                mind_entry_template;
+   *                mind_entry_consnames;
+   *                mind_entry_lc} :: list)
+   *     ) ([]) (zip (inds, constrs))
+   *   ) in
+   * (\* let restricted_sigma = (Evd.restrict_universe_context restricted_sigma univs) in *\)
+   * let univ_entry = Evd.check_univ_decl ~poly:poly restricted_sigma (UState.default_univ_decl) in
+   * let ubinders = Evd.universe_binders restricted_sigma in
+   * (\* let univ_entry = Evd.univ_entry ~poly:false sigma in
+   *  * let ubinders = UnivNames.empty_binders in *\)
+   * let mind_entry_inds = List.rev mind_entry_inds in
+   * let _ = ComInductive.declare_mutual_inductive_with_eliminations
+   *           {mind_entry_record=None;
+   *            mind_entry_finite=Declarations.Finite;
+   *            mind_entry_inds;
+   *            mind_entry_params;
+   *            mind_entry_universes=univ_entry;
+   *            mind_entry_variance=None;
+   *            mind_entry_private=None;
+   *           } ubinders [] in *)
   (sigma, CoqUnit.mkTT)
 
 
@@ -2091,8 +2143,8 @@ and primitive ctxt vms mh reduced_term =
   | MConstr (Mkind_of_term, (_, t)) ->
       ereturn sigma (koft sigma (CClosure.term_of_fconstr t))
 
-  | MConstr (Mdeclare_mind, (params, inds, constrs)) ->
-      let sigma, types = declare_mind env sigma (to_econstr params) (to_econstr inds) (to_econstr constrs) in
+  | MConstr (Mdeclare_mind, (poly, params, inds, constrs)) ->
+      let sigma, types = declare_mind env sigma (to_econstr poly) (to_econstr params) (to_econstr inds) (to_econstr constrs) in
       ereturn sigma types
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function

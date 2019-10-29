@@ -1,17 +1,25 @@
-From Coq Require Import BinNums.
-From Mtac2 Require Import List.
+From Coq Require Import BinNums String.
+From Mtac2 Require Import Datatypes List.
+Import ProdNotations.
 From Mtac2.intf Require Import Dyn.
 
 Set Universe Polymorphism.
 Unset Universe Minimization ToSet.
 Set Polymorphic Inductive Cumulativity.
 
+Record Constr_dyn :=
+  mkConstr_dyn {
+      constr_dyn_constr : dyn;
+      constr_dyn_name : string;
+    }.
+
 Record Ind_dyn :=
   mkInd_dyn {
       ind_dyn_ind : dyn;
+      ind_dyn_ind_name : string;
       ind_dyn_nparams : N;
       ind_dyn_nindices : N;
-      ind_dyn_constrs : mlist dyn
+      ind_dyn_constrs : mlist Constr_dyn;
     }.
 
 Record Case :=
