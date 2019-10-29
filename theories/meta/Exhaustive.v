@@ -15,19 +15,19 @@ Set Polymorphic Inductive Cumulativity.
  *)
 
 Definition ConstrNotFound : Exception. constructor. Qed.
-Definition ConstrsUnmentioned (m : mlist dyn) : Exception. constructor. Qed.
+Definition ConstrsUnmentioned (m : mlist Constr_dyn) : Exception. constructor. Qed.
 
-Definition find_in_constrs {C} (c : C)  : mlist dyn -> M (mlist dyn) :=
-  mfix1 f (cs : _) : M _ :=
+Definition find_in_constrs {C} (c : C)  : mlist Constr_dyn -> M (mlist Constr_dyn) :=
+  mfix1 f (cs : mlist Constr_dyn) : M _ :=
     match cs with
     | mnil => M.ret mnil
-    | mcons c' cs =>
+    | mcons (mkConstr_dyn c' name) cs =>
       '(m: c, _) <- M.decompose c;
       dcase c as C, c in
       let C := reduce (RedVmCompute) C in
       mmatch c' with
       | @Dyn C c =n> M.ret cs
-      | _ => l <- f cs; M.ret (c' :m: l)
+      | _ => l <- f cs; M.ret (mkConstr_dyn c' name :m: l)
       end
     end.
 
@@ -36,9 +36,9 @@ Definition check_exhaustiveness {A B y}
            (ps_in : mlist (branch A B y))
            (ops : moption (mlist (branch A B y))) :
   M (mlist (branch A B y)) :=
-  '(mkInd_dyn _ _ _ constrs) <- M.constrs A;
+  '(mkInd_dyn _ _ _ _ constrs) <- M.constrs A;
   (
-    mfix2 f (ps : _) (constrs : _) : M _ :=
+    mfix2 f (ps : _) (constrs : mlist Constr_dyn) : M _ :=
       match ps, constrs with
       | mnil, mnil =>
         match ops with

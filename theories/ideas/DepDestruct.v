@@ -445,8 +445,8 @@ Fixpoint apply_params_constrs {s} {i : ITele s} (n : nat) :
 Obligation Tactic := idtac.
 Program
 Definition get_ind (A : Type) :
-  M (nat *m nat *m sigT (fun s => (ITele s)) *m mlist dyn) :=
-  '(mkInd_dyn indP nparams nindx constrs) <- M.constrs A;
+  M (nat *m nat *m sigT (fun s => (ITele s)) *m mlist Constr_dyn) :=
+  '(mkInd_dyn indP _ nparams nindx constrs) <- M.constrs A;
   dcase indP as el in
   sortit <- get_ITele el : M (nat *m sigT ITele);
   let (isort, it) := msnd sortit in
@@ -466,7 +466,7 @@ Definition new_destruct {A : Type} (n : A) : tactic := \tactic g =>
       (* let (isort, it) := sortit in *)
       atele <- get_ind_atele it nparams nindx A;
                  (* Compute CTeles *)
-        cts <- M.map (fun c_dyn : dyn =>
+        cts <- M.map (fun '(mkConstr_dyn c_dyn _) =>
                        dcase c_dyn as dtype, delem in
                        ty <- M.evar (stype_of isort);
                        b <- M.cumul UniCoq ty dtype;

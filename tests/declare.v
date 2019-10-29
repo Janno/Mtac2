@@ -119,14 +119,14 @@ Definition typ_of {A : Type} (a : A) := A.
 Import TeleNotation.
 Notation P := [tele (T : Type) (k : nat)].
 Module M1.
-  Notation I2 := (m: "blubb__"%string; fun T k => mexistT (MTele_ConstT _) ([tele _ : k = k]) (fun _ => Propₛ)).
-  Definition mind_test := (M.declare_mind P ([m: I2])).
+  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => ([tele _ : k = k])).
+  Definition mind_test := (M.declare_mind false P ([m: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
   Definition testprog :=
     mind_test
-      (fun I2 T k =>
+      (fun (I2 : forall T k, k = k -> _) T k =>
          (m:
           mnil;
           tt)
@@ -142,8 +142,8 @@ Module M1.
 End M1.
 
 Module M2.
-  Notation I2 := (m: "blubb__"%string; fun T k => mexistT (MTele_ConstT _) ([tele _ : k = k]) (fun _ => Propₛ)).
-  Definition mind_test := (M.declare_mind P ([m: I2])).
+  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => ([tele _ : k = k])).
+  Definition mind_test := (M.declare_mind false P ([m: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -173,9 +173,9 @@ End M2.
 
 Module M3.
 
-Notation I1 := (m: "bla__"%string; fun T k => mexistT (MTele_ConstT _) ([tele]) (Typeₛ)).
-Notation I2 := (m: "blubb__"%string; fun T k => mexistT (MTele_ConstT _ ) ([tele]) (Propₛ)).
-Definition mind_test := (M.declare_mind P ([m: I1 |  I2])).
+Notation I1 := (m: "bla__"%string; Typeₛ; fun T k => [tele]).
+Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => [tele]).
+Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
 Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
 (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -210,9 +210,9 @@ Eval cbn in ltac:(mrun(
 End M3.
 
 Module M4.
-  Notation I1 := (m: "bla__"%string; fun T k => mexistT (MTele_ConstT _) ([tele x y : nat]) (fun x y => Typeₛ)).
-  Notation I2 := (m: "blubb__"%string; fun T k => mexistT (MTele_ConstT _) ([tele _ : k = k]) (fun _ => Propₛ)).
-  Definition mind_test := (M.declare_mind P ([m: I1 |  I2])).
+  Notation I1 := (m: "bla__"%string; Typeₛ; fun T k => [tele x y : nat]).
+  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => [tele _ : k = k]).
+  Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -231,6 +231,7 @@ Module M4.
           mnil;
           tt)
       ).
+  Eval cbv in testprog.
 
   Eval cbn in ltac:(mrun(
                         let t := dreduce ((@S.Fun), testprog) testprog in

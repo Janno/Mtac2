@@ -22,24 +22,24 @@ Unset Universe Minimization ToSet.
 (** Obtains the list of constructors of a type I from a type of the
    form A1 -> ... -> An -> I *)
 Definition get_constrs :=
-  mfix1 fill (T : Type) : M (mlist dyn) :=
-    mmatch T return M (mlist dyn) with
+  mfix1 fill (T : Type) : M (mlist Constr_dyn) :=
+    mmatch T return M (mlist Constr_dyn) with
     | [? A B] A -> B => fill B
     | [? A (P:A->Type)] forall x, P x =>
       M.nu (FreshFrom T) mNone (fun x=>
         fill (P x)
       )
     | _ =>
-      '(mkInd_dyn _ _ _ l) <- M.constrs T;
+      '(mkInd_dyn _ _ _ _ l) <- M.constrs T;
       M.ret l
     end%MC.
 
 (** Given a constructor c, it returns its index. *)
 Definition index {A} (c: A) : M _ :=
   l <- get_constrs A;
-  (mfix2 f (i : nat) (l : mlist dyn) : M nat :=
+  (mfix2 f (i : nat) (l : mlist Constr_dyn) : M nat :=
     mmatch l with
-    | [? l'] (Dyn c :m: l') => M.ret i
+    | [? name l'] (mkConstr_dyn (Dyn c) name :m: l') => M.ret i
     | [? d' l'] (d' :m: l') => f (S i) l'
     end)%MC 0 l.
 
@@ -66,7 +66,7 @@ Definition apply_except (l : mlist dyn) (t : tactic) : selector unit := fun goal
   a_constr <- match mhd_error l with mSome d=> M.ret d | _ => M.failwith "apply_except: empty list" end;
   dcase a_constr as T, c in
   constrs <- get_constrs T;
-  M.fold_left (fun (accu : mlist (unit *m goal gs_any)) (d : dyn)=>
+  M.fold_left (fun (accu : mlist (unit *m goal gs_any)) '(mkConstr_dyn d _) =>
       dcase d as c in
       i <- index c;
       let ogoal := mnth_error goals i in
