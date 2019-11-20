@@ -390,7 +390,6 @@ Definition ITele_App_eq
   | iTele f => fun '(existT _ _ _) => eq_refl
   end.
 
-
 Definition apply_param_constr {s} {i : ITele s} :
   forall (a : ATele i) (c : CTele i),
     M (CTele (mprojT1 (apply_arg i a))) :=
@@ -402,7 +401,7 @@ Definition apply_param_constr {s} {i : ITele s} :
   | iTele f =>
     fun '(existT _ arg args as at1) =>
       (fix go first (c : CTele (iTele f)) : M (CTele (f arg)) :=
-         match c , first with
+         match c , first return M (CTele (f arg)) with
          | cBase (existT _ arg' args' as at2) app, false =>
            mmatch arg as arg return M (CTele (f arg)) with
            | arg' =u>

@@ -16,10 +16,10 @@ Inductive pattern@{a b} (M : Type@{b} -> Prop) (A : Type@{a}) (B : A -> Type@{b}
   | psort : (Sort -> pattern M A B y) -> pattern M A B y.
 
 
-Arguments pany {M A B y} _.
-Arguments pbase {M A B y} _ _ _.
-Arguments ptele {M A B y C} _.
-Arguments psort {M A B y} _.
+Arguments pany {M A B y} & _.
+Arguments pbase {M A B y} & _ _ _.
+Arguments ptele {M A B y} & {C} _.
+Arguments psort {M A B y} & _.
 
 Inductive branch@{a b c+} {M : Type@{b} -> Prop} : forall {A : Type@{a}} {B : A -> Type@{b}} {y : A}, Prop :=
 | branch_pattern {A : Type@{a}} {B : A -> Type@{b}} {y}: pattern M A B y -> @branch M A B y
@@ -34,6 +34,7 @@ Inductive branch@{a b c+} {M : Type@{b} -> Prop} : forall {A : Type@{a}} {B : A 
     (forall (X : Type@{c}) (Y : X -> Type@{c}), M (B (forall x : X, Y x))) ->
     @branch M Type@{c} B y.
 Arguments branch _ _ _ _ : clear implicits.
+Arguments branch_pattern {M A B y} & p : rename.
 
 
 (* | branch_app_dynamic {A} {B : forall A, A -> Type} {y}: *)
@@ -124,11 +125,14 @@ Delimit Scope branch_scope with branch.
 
 Declare Scope with_pattern_scope.
 
+Definition branch_cons {A} a := @mcons A a.
+Arguments branch_cons {_} & _.
+
 Notation "'with' | p1 | .. | pn 'end'" :=
-  ((@mcons (branch _ _ _ _) p1%branch (.. (@mcons (branch _ _ _ _) pn%branch [m:]) ..)))
+  ((@branch_cons (branch _ _ _ _) p1%branch (.. (@branch_cons (branch _ _ _ _) pn%branch [m:]) ..)))
   (at level 91, p1 at level 210, pn at level 210) : with_pattern_scope.
 Notation "'with' p1 | .. | pn 'end'" :=
-  ((@mcons (branch _ _ _ _) p1%branch (.. (@mcons (branch _ _ _ _) pn%branch [m:]) ..)))
+  ((@branch_cons (branch _ _ _ _) p1%branch (.. (@branch_cons (branch _ _ _ _) pn%branch [m:]) ..)))
   (at level 91, p1 at level 210, pn at level 210) : with_pattern_scope.
 
 Delimit Scope with_pattern_scope with with_pattern.

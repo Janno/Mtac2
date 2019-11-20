@@ -475,7 +475,7 @@ Definition n_etas (n : nat) {A} (f : A) : M A :=
       (* we remove the wrapper of the element in [d] *)
       M.unfold_projection (elemr d)
     | S n' =>
-       mmatch d with
+       mmatch d as d return M (typer d) with
        | [? B (T:B->Type) f] @Dynr (forall x:B, T x) f =>
          ty <- M.unfold_projection (typer d);
          M.nu (FreshFrom ty) mNone (fun x:B =>
@@ -537,7 +537,7 @@ Definition repeat (t : tactic) : tactic :=
       M.ret res
     end).
 
-Definition map_term (f : forall d:dynr, M d.(typer)) : forall d : dynr, M d.(typer) :=
+Program Definition map_term (f : forall d:dynr, M d.(typer)) : forall d : dynr, M d.(typer) :=
   mfix1 rec (d : dynr) : M d.(typer) :=
     let (ty, el) := d in
     mmatch d as d return M d.(typer) with

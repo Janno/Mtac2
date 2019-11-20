@@ -510,6 +510,7 @@ Fixpoint mmatch''@{a p+} {A:Type@{a}} {P: A -> Type@{p}} (E : Exception) (y : A)
 
 Definition mmatch' {A:Type} {P: A -> Type} (E : Exception) (y : A) (ps : mlist (branch t A P y)) : t (P y) :=
   mmatch'' E y (raise NoPatternMatches) ps.
+Arguments mmatch' {A P} E y & ps.
 
 Definition NotCaught : Exception. constructor. Qed.
 
