@@ -61,6 +61,7 @@ Definition mtmmatch' A m (T : forall x, MTele_Ty (m x)) (y : A)
                        mif M.unify e DoesNotMatch UniMatchNoRed then mmatch' ps' else M.raise e)
           end) ps
     ).
+Arguments mtmmatch' _ _ _ _ & _.
 
 
 Module TestFin.

@@ -74,7 +74,7 @@ Definition fix4 {A1} {A2 : A1 -> Type} {A3 : forall a1 : A1, A2 a1 -> Type}
   @M.fix5 A1 A2 A3 A4 (fun _ _ _ _ => (goal _)) (fun x y z z' _ => mlist (B x y z z' *m (goal _))).
 
 Fixpoint pattern_map {A} {B : A -> Type} (g : (goal _)) (y : A)
-    (p : pattern gtactic A B y) : pattern M A (fun y => mlist (B y *m (goal _))) y :=
+    (p : pattern A (fun y => gtactic (B y)) y) : pattern A (fun y => M (mlist (B y *m (goal _)))) y :=
   match p with
   | pany b => pany (b g)
   | pbase x f r => pbase x (fun Heq => f Heq g) r
@@ -82,21 +82,37 @@ Fixpoint pattern_map {A} {B : A -> Type} (g : (goal _)) (y : A)
   | psort f => psort (fun s => pattern_map g y (f s))
   end.
 
-Definition branch_map {A} {B} (y : A) (g : (goal _)) (b : branch gtactic A B y) :
-  branch M A (fun y => mlist (B y *m (goal _))) y :=
-  match b in branch _ A' _ y' return branch _ A' _ y' with
+Definition branch_map_aux {A} {B} {R} (y : A) (g : (goal _)) (b : branch A B y) :
+  (fun y => gtactic (R y)) =m= B ->
+  branch A (fun y => M (mlist (R y *m (goal gs_any)))) y :=
+  match b in branch A' B' y' return
+        forall (R : A' -> Type), (fun y => gtactic (R y)) =m= B' -> branch A' (fun y => M (mlist (R y *m (goal gs_any)))) y'
+  with
   | branch_pattern p =>
+    fun R eqR =>
+    let p := ltac:(rewrite <-eqR in p; exact p) in
     branch_pattern (pattern_map g _ p)
   | branch_app_static U ct cont =>
+    fun R eqR =>
+    let cont := ltac:(rewrite <-eqR in cont; exact cont) in
     let cont := MTele.MTele_constmap_app (si:=Typeₛ) Propₛ (fun _ _ => _) ct cont g in
-    @branch_app_static _ _ _ _ _ U _ cont
-  | branch_forallP cont => branch_forallP (fun X Y => cont X Y g)
-  | branch_forallT cont => branch_forallT (fun X Y => cont X Y g)
-  end.
+    @branch_app_static _ _ _ _ U _ cont
+  | branch_forallP cont =>
+    fun R eqR =>
+      let cont := ltac:(rewrite <-eqR in cont; exact cont) in
+      branch_forallP (fun X Y => cont X Y g)
+  | branch_forallT cont =>
+    fun R eqR =>
+      let cont := ltac:(rewrite <-eqR in cont; exact cont) in
+      branch_forallT (fun X Y => cont X Y g)
+  end R.
 
+Definition branch_map {A} {B} (y : A) (g : (goal _)) (b : branch A (fun y => gtactic (B y)) y) :
+  branch A (fun y => M (mlist (B y *m (goal _)))) y :=
+  branch_map_aux y g b meq_refl.
 
 Definition mmatch' {A P} (E : Exception) (y : A)
-    (ps : mlist (branch gtactic A P y)) : gtactic (P y) := fun g =>
+    (ps : mlist (branch A (fun y => gtactic (P y)) y)) : gtactic (P y) := fun g =>
   M.mmatch' E y (mmap (branch_map y g) ps).
 
 Definition ret {A} (x : A) : gtactic A := fun '(Metavar _ _ g) => M.ret [m:(m: x, AnyMetavar _ _ g)].
@@ -443,9 +459,9 @@ Module notations.
     (at level 200, ls at level 91) : tactic_scope.
 
   Notation "'mtry' a ls" :=
-    (mtry' a (fun e =>
+    (mtry' a (fun e : Exception =>
       (@mmatch' _ (fun _ => _) M.NotCaught e
-                   (mapp ls%with_pattern [m:branch_pattern (pany (raise e))%pattern]))))
+                   (mapp ls%with_pattern [m:branch_pattern (@pany Exception _ e (raise e))%pattern]))))
       (at level 200, a at level 100, ls at level 91, only parsing) : tactic_scope.
 
   Notation "t || u" := (or t u) : tactic_scope.

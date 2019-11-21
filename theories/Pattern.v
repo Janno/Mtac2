@@ -9,32 +9,32 @@ Set Polymorphic Inductive Cumulativity.
 (** Pattern matching without pain *)
 (* The M will be instantiated with the M monad or the gtactic monad. In principle,
 we could make it part of the B, but then higher order unification will fail. *)
-Inductive pattern@{a b} (M : Type@{b} -> Prop) (A : Type@{a}) (B : A -> Type@{b}) (y : A) : Prop :=
-  | pany : M (B y) -> pattern M A B y
-  | pbase : forall x : A, (y =m= x ->M (B x)) -> Unification -> pattern M A B y
-  | ptele : forall {C:Type@{a}}, (forall x : C, pattern M A B y) -> pattern M A B y
-  | psort : (Sort -> pattern M A B y) -> pattern M A B y.
+Inductive pattern@{a} (A : Type@{a}) (B : A -> Prop) (y : A) : Prop :=
+  | pany : B y -> pattern A B y
+  | pbase : forall x : A, (y =m= x -> B x) -> Unification -> pattern A B y
+  | ptele : forall {C:Type@{a}}, (forall x : C, pattern A B y) -> pattern A B y
+  | psort : (Sort -> pattern A B y) -> pattern A B y.
 
 
-Arguments pany {M A B y} & _.
-Arguments pbase {M A B y} & _ _ _.
-Arguments ptele {M A B y} & {C} _.
-Arguments psort {M A B y} & _.
+Arguments pany {A B y} & _.
+Arguments pbase {A B y} & _ _ _.
+Arguments ptele {A B y} & {C} _.
+Arguments psort {A B y} & _.
 
-Inductive branch@{a b c+} {M : Type@{b} -> Prop} : forall {A : Type@{a}} {B : A -> Type@{b}} {y : A}, Prop :=
-| branch_pattern {A : Type@{a}} {B : A -> Type@{b}} {y}: pattern M A B y -> @branch M A B y
-| branch_app_static {A : Type@{a}} {B : A -> Type@{b}} {y}:
+Inductive branch@{a c+} : forall {A : Type@{a}} {B : A -> Prop} {y : A}, Prop :=
+| branch_pattern {A : Type@{a}} {B : A -> Prop} {y}: pattern A B y -> @branch A B y
+| branch_app_static {A : Type@{a}} {B : A -> Prop} {y}:
     forall {m:MTele} (uni : Unification) (C : selem_of (MTele_Const (s:=Typeₛ) A m)),
-      MTele_sort (MTele_ConstMap (si := Typeₛ) Propₛ (fun a : A => M (B a)) C) ->
-      @branch M A B y
-| branch_forallP {B : Prop -> Type@{b}} {y}:
-    (forall (X : Type@{c}) (Y : X -> Prop), M (B (forall x : X, Y x))) ->
-    @branch M Prop B y
-| branch_forallT {B : Type@{c} -> Type@{b}} {y : Type@{c}}:
-    (forall (X : Type@{c}) (Y : X -> Type@{c}), M (B (forall x : X, Y x))) ->
-    @branch M Type@{c} B y.
-Arguments branch _ _ _ _ : clear implicits.
-Arguments branch_pattern {M A B y} & p : rename.
+      MTele_sort (MTele_ConstMap (si := Typeₛ) Propₛ (fun a : A => B a) C) ->
+      @branch A B y
+| branch_forallP {B : Prop -> Prop} {y}:
+    (forall (X : Type@{c}) (Y : X -> Prop), (B (forall x : X, Y x))) ->
+    @branch Prop B y
+| branch_forallT {B : Type@{c} -> Prop} {y : Type@{c}}:
+    (forall (X : Type@{c}) (Y : X -> Type@{c}), (B (forall x : X, Y x))) ->
+    @branch Type@{c} B y.
+Arguments branch _ _ _ : clear implicits.
+Arguments branch_pattern {A B y} & p : rename.
 
 
 (* | branch_app_dynamic {A} {B : forall A, A -> Type} {y}: *)
@@ -129,10 +129,10 @@ Definition branch_cons {A} a := @mcons A a.
 Arguments branch_cons {_} & _.
 
 Notation "'with' | p1 | .. | pn 'end'" :=
-  ((@branch_cons (branch _ _ _ _) p1%branch (.. (@branch_cons (branch _ _ _ _) pn%branch [m:]) ..)))
+  ((@branch_cons (branch _ _ _) p1%branch (.. (@branch_cons (branch _ _ _) pn%branch [m:]) ..)))
   (at level 91, p1 at level 210, pn at level 210) : with_pattern_scope.
 Notation "'with' p1 | .. | pn 'end'" :=
-  ((@branch_cons (branch _ _ _ _) p1%branch (.. (@branch_cons (branch _ _ _ _) pn%branch [m:]) ..)))
+  ((@branch_cons (branch _ _ _) p1%branch (.. (@branch_cons (branch _ _ _) pn%branch [m:]) ..)))
   (at level 91, p1 at level 210, pn at level 210) : with_pattern_scope.
 
 Delimit Scope with_pattern_scope with with_pattern.

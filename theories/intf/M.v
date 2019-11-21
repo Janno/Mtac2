@@ -448,7 +448,7 @@ End monad_notations.
 
 Import monad_notations.
 
-Fixpoint open_pattern@{a p+} {A : Type@{a}} {P : A -> Type@{p}} {y} (E : Exception) (p : pattern t A P y) : t (P y) :=
+Fixpoint open_pattern@{a p+} {A : Type@{a}} {P : A -> Type@{p}} {y} (E : Exception) (p : pattern A (fun y => t (P y)) y) : t (P y) :=
   match p with
   | pany b => b
   | pbase x f u =>
@@ -463,7 +463,7 @@ Fixpoint open_pattern@{a p+} {A : Type@{a}} {P : A -> Type@{p}} {y} (E : Excepti
       let b := (* reduce (RedWhd [rl:RedBeta]) *) (f h) in b
     | mNone => raise E
     end
-  | @ptele _ _ _ _ C f => e <- evar C; open_pattern E (f e)
+  | @ptele _ _ _ C f => e <- evar C; open_pattern E (f e)
   | psort f =>
     mtry'
       (open_pattern E (f Propₛ))
@@ -477,29 +477,31 @@ Fixpoint open_pattern@{a p+} {A : Type@{a}} {P : A -> Type@{p}} {y} (E : Excepti
       )
   end.
 
-Definition open_branch {A P y} (E : Exception) (b : branch t A P y) : t (P y) :=
-  match b in branch _ A' P y' return forall z: A', z =m= y' -> t (P y') with
-  | @branch_pattern _ A P _ p =>
-    fun z eq =>
-      let op := @open_pattern _ P z E in
-      ltac:(rewrite eq in op; exact op) p
-  | @branch_app_static _ A B y m U _ cont =>
-    fun z eq =>
-      let op := is_head (B:=B) U z _ cont (raise E) in
-      ltac:(rewrite eq in op; exact op)
+Unset Printing Universes.
+Definition open_branch' {A P R y} (E : Exception) (b : branch A P y) :
+  (fun y => t (R y)) =m= P -> t (R y) :=
+  match b in branch A' P' y' return
+        forall (R : A' -> Type) (z: A'), z =m= y' -> (fun y => t (R y)) =m= P' -> t (R z)
+  with
+  | @branch_pattern A P _ p =>
+    fun R z eq1 eq2 =>
+      ltac:(rewrite <-eq2,<- eq1 in p; refine (open_pattern E p))
+  | @branch_app_static A B y m U _ cont =>
+    fun R z eq1 eq2 =>
+      ltac:(rewrite <-eq2 in cont; refine (is_head (B:=R) U z _ cont (raise E)))
   | branch_forallT cont =>
-    fun z eq =>
-      let op := decompose_forallT z cont (raise E) in
-      ltac:(rewrite eq in op; exact op)
+    fun R z eq1 eq2 =>
+      ltac:(rewrite <-eq2 in cont; refine (decompose_forallT z cont (raise E)))
   | branch_forallP cont =>
-    fun z eq =>
-      let op := decompose_forallP z cont (raise E) in
-      ltac:(rewrite eq in op; exact op)
-  (* | _ => fun _ _ => M.failwith "not implemented" *)
-  end y meq_refl.
+    fun R z eq1 eq2 =>
+      ltac:(rewrite <-eq2 in cont; refine (decompose_forallP z cont (raise E)))
+  end R y meq_refl.
+
+Definition open_branch {A P y} (E : Exception) (b : branch A (fun y => t (P y)) y) : t (P y) :=
+  open_branch' E b meq_refl.
 
 (* The first universe of the [branch] could be shared with [A] but somehow that makes our iris case study slower in a reproducible way.  *)
-Fixpoint mmatch''@{a p+} {A:Type@{a}} {P: A -> Type@{p}} (E : Exception) (y : A) (failure : t (P y)) (ps : mlist@{Set} (branch t A P y)) : t (P y) :=
+Fixpoint mmatch''@{a p+} {A:Type@{a}} {P: A -> Type@{p}} (E : Exception) (y : A) (failure : t (P y)) (ps : mlist@{Set} (branch A (fun y => t (P y)) y)) : t (P y) :=
   match ps with
   | [m:] => failure
   | p :m: ps' =>
@@ -508,7 +510,7 @@ Fixpoint mmatch''@{a p+} {A:Type@{a}} {P: A -> Type@{p}} (E : Exception) (y : A)
           (* TODO: don't abuse is_head for this. *)
   end.
 
-Definition mmatch' {A:Type} {P: A -> Type} (E : Exception) (y : A) (ps : mlist (branch t A P y)) : t (P y) :=
+Definition mmatch' {A:Type} {P: A -> Type} (E : Exception) (y : A) (ps : mlist (branch A (fun y => t (P y)) y)) : t (P y) :=
   mmatch'' E y (raise NoPatternMatches) ps.
 Arguments mmatch' {A P} E y & ps.
 
