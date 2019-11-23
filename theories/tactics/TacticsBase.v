@@ -115,6 +115,22 @@ Definition mmatch' {A P} (E : Exception) (y : A)
     (ps : mlist (branch A (fun y => gtactic (P y)) y)) : gtactic (P y) := fun g =>
   M.mmatch' E y (mmap (branch_map y g) ps).
 
+Module Matcher.
+Canonical Structure M_Predicate {A} {P : A -> Type} {y : A} : Predicate y := {| predicate_pred := gtactic (P y) |}.
+Canonical Structure M_Matcher {A} {y} {P} :=
+  {|
+    matcher_pred := @M_Predicate _ _;
+    matcher_ret := gtactic (P y);
+    matcher_match E ps := @mmatch' A P E y ps
+  |}.
+Canonical Structure M_InDepMatcher {B} :=
+  {|
+    idmatcher_return := gtactic B;
+    idmatcher_match A y E ps := @mmatch' A (fun _ => B) E y ps
+  |}.
+End Matcher.
+Export Matcher.
+
 Definition ret {A} (x : A) : gtactic A := fun '(Metavar _ _ g) => M.ret [m:(m: x, AnyMetavar _ _ g)].
 Definition idtac : tactic := ret tt.
 
@@ -448,16 +464,6 @@ Module notations.
     (at level 200, f ident, x binder, y binder, format
     "'[v  ' 'mfix4'  f  x  ..  y  ':'  'gtactic'  T  ':=' '/  ' b ']'") : tactic_scope.
 
-  Notation "'mmatch' x ls" :=
-    (@mmatch' _ (fun _ => _) DoesNotMatch x ls%with_pattern)
-    (at level 200, ls at level 91) : tactic_scope.
-  Notation "'mmatch' x 'return' 'gtactic' p ls" :=
-    (@mmatch' _ (fun x => p%type) DoesNotMatch x ls%with_pattern)
-    (at level 200, ls at level 91) : tactic_scope.
-  Notation "'mmatch' x 'as' y 'return' 'gtactic' p ls" :=
-    (@mmatch' _ (fun y => p%type) DoesNotMatch x ls%with_pattern)
-    (at level 200, ls at level 91) : tactic_scope.
-
   Notation "'mtry' a ls" :=
     (mtry' a (fun e : Exception =>
       (@mmatch' _ (fun _ => _) M.NotCaught e
@@ -555,4 +561,6 @@ Module notations.
 End notations.
 
 End T.
+Export T.Matcher.
+
 Coercion T.of_M : M >-> gtactic.

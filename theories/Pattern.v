@@ -240,3 +240,18 @@ Definition matcher_match_invert (A : Type) (y : A) (m : Matcher y) (R : A -> Pro
   intros <- <-. auto using matcher_match. Defined.
 
 Arguments matcher_match_invert _ _ _ _ & _ _ _ _ .
+
+
+Notation "'mmatch' x ls" :=
+  (@idmatcher_match_invert _ x _ _ (meq_refl) DoesNotMatch ls%with_pattern)
+    (at level 200, ls at level 91).
+Notation "'mmatch' x 'return' p ls" :=
+  (@idmatcher_match_invert _ x _ p (meq_refl) DoesNotMatch ls%with_pattern)
+    (at level 200, ls at level 91).
+
+Notation "'mmatch' x 'as' y 'return' p ls" :=
+  (@matcher_match_invert _ x _ (fun y => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
+    (at level 200, ls at level 91).
+Notation "'mmatch' x 'in' T 'as' y 'return' p ls" :=
+  (@matcher_match_invert _ x _ (fun y : T => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
+    (at level 200, ls at level 91).

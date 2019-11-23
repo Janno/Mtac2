@@ -575,20 +575,6 @@ Module notations_pre.
     (at level 200, f ident, x binder, y binder, format
     "'[v  ' 'mfix5'  f  x  ..  y  ':'  'M'  T  ':=' '/  ' b ']'") : M_scope.
 
-  Notation "'mmatch' x ls" :=
-    (@idmatcher_match_invert _ x _ _ (meq_refl) DoesNotMatch ls%with_pattern)
-    (at level 200, ls at level 91) : M_scope.
-  Notation "'mmatch' x 'return' p ls" :=
-    (@idmatcher_match_invert _ x _ p (meq_refl) DoesNotMatch ls%with_pattern)
-    (at level 200, ls at level 91) : M_scope.
-
-  Notation "'mmatch' x 'as' y 'return' p ls" :=
-    (@matcher_match_invert _ x _ (fun y => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
-    (at level 200, ls at level 91) : M_scope.
-  Notation "'mmatch' x 'in' T 'as' y 'return' p ls" :=
-    (@matcher_match_invert _ x _ (fun y : T => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
-    (at level 200, ls at level 91) : M_scope.
-
   Notation "'mtry' a ls" :=
     (mtry' a (fun e =>
       (@mmatch'' _ (fun _ => _) NotCaught e (raise e) ls%with_pattern)))
