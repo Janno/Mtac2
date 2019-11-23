@@ -514,6 +514,23 @@ Definition mmatch' {A:Type} {P: A -> Type} (E : Exception) (y : A) (ps : mlist (
   mmatch'' E y (raise NoPatternMatches) ps.
 Arguments mmatch' {A P} E y & ps.
 
+
+Module Matcher.
+Canonical Structure M_Predicate {A} {P : A -> Type} {y : A} : Predicate y := {| predicate_pred := t (P y) |}.
+Canonical Structure M_Matcher {A} {y} {P} :=
+  {|
+    matcher_pred := @M_Predicate _ _;
+    matcher_ret := t (P y);
+    matcher_match E ps := @mmatch' A P E y ps
+  |}.
+Canonical Structure M_InDepMatcher {B} :=
+  {|
+    idmatcher_return := t B;
+    idmatcher_match A y E ps := @mmatch' A (fun _ => B) E y ps
+  |}.
+End Matcher.
+Export Matcher.
+
 Definition NotCaught : Exception. constructor. Qed.
 
 Module notations_pre.
@@ -559,16 +576,17 @@ Module notations_pre.
     "'[v  ' 'mfix5'  f  x  ..  y  ':'  'M'  T  ':=' '/  ' b ']'") : M_scope.
 
   Notation "'mmatch' x ls" :=
-    (@mmatch' _ (fun _ => _) DoesNotMatch x ls%with_pattern)
+    (@idmatcher_match_invert _ x _ _ (meq_refl) DoesNotMatch ls%with_pattern)
     (at level 200, ls at level 91) : M_scope.
-  Notation "'mmatch' x 'return' 'M' p ls" :=
-    (@mmatch' _ (fun _ => p%type) DoesNotMatch x ls%with_pattern)
+  Notation "'mmatch' x 'return' p ls" :=
+    (@idmatcher_match_invert _ x _ p (meq_refl) DoesNotMatch ls%with_pattern)
     (at level 200, ls at level 91) : M_scope.
-  Notation "'mmatch' x 'as' y 'return' 'M' p ls" :=
-    (@mmatch' _ (fun y => p%type) DoesNotMatch x ls%with_pattern)
+
+  Notation "'mmatch' x 'as' y 'return' p ls" :=
+    (@matcher_match_invert _ x _ (fun y => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
     (at level 200, ls at level 91) : M_scope.
-  Notation "'mmatch' x 'in' T 'as' y 'return' 'M' p ls" :=
-    (@mmatch' _ (fun y : T => p%type) DoesNotMatch x ls%with_pattern)
+  Notation "'mmatch' x 'in' T 'as' y 'return' p ls" :=
+    (@matcher_match_invert _ x _ (fun y : T => p) (meq_refl) (meq_refl) DoesNotMatch ls%with_pattern)
     (at level 200, ls at level 91) : M_scope.
 
   Notation "'mtry' a ls" :=
@@ -1045,5 +1063,7 @@ Definition bunify {A} (x y: A) (u: Unification) : t bool :=
   mif unify x y u then ret true else ret false.
 
 End M.
+
+Export M.Matcher.
 
 Notation M := M.t.

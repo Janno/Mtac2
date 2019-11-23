@@ -34,10 +34,7 @@ Abort.
 
 Goal {n:nat| n = n}.
 MProof.
-  (* The following [mmatch] needs a type annotation that was not necessary before enabling bidir. typechecking hints for [M.mmatch']. *)
-  (* This can also be solved by enabling hints for [exist] as shown below. *)
-  (* Arguments exist _ _ & _. *)
-  (mmatch 2 + 4 return M {n | n = n} with
+  (mmatch 2 + 4 with
   | [? n] n + n => M.ret (exist _ (n + n) eq_refl)
   | [? n] n + n => M.ret (exist _ (n + n) eq_refl)
   | [? n] n + n => M.ret (exist _ (n + n) eq_refl)

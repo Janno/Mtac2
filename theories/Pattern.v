@@ -1,4 +1,4 @@
-From Mtac2 Require Import Logic List intf.Unification Sorts MTele.
+From Mtac2 Require Import Logic List intf.Unification Sorts MTele Exceptions.
 Import Sorts.S.
 Import ListNotations.
 
@@ -202,3 +202,41 @@ Notation "'[!Prop' ] 'forall' '_' : X , P =n> b" :=
 Notation "'[!Type' ] 'forall' '_' : X , P =n> b" :=
   (branch_forallT (fun X P => b))
     (at level 201) : branch_scope.
+
+
+Structure Predicate {A : Type} (x : A) :=
+  {
+    predicate_pred : Prop
+  }.
+
+Structure Matcher {A : Type} (y : A) :=
+  {
+    matcher_pred: forall y : A, Predicate y;
+    matcher_ret: Prop;
+    matcher_match : forall (E: Exception) (ps : mlist (branch A (fun y => predicate_pred y (matcher_pred y)) y)), matcher_ret
+  }.
+
+Structure InDepMatcher :=
+  {
+    idmatcher_return : Prop;
+    idmatcher_match : forall A y (E: Exception) (ps : mlist (branch A (fun _ => idmatcher_return) y)), idmatcher_return;
+  }.
+
+Definition idmatcher_match_invert (A : Type) (y : A) (m : InDepMatcher) (R : Prop) :
+  R =m= idmatcher_return m ->
+  forall (_ : Exception) (_ : mlist (branch A (fun _ => R) y)),
+    (* R y =m= matcher_return y m -> *)
+    R.
+  intros ->. eauto using idmatcher_match. Defined.
+
+Arguments idmatcher_match _ _ _ _ & _.
+
+Definition matcher_match_invert (A : Type) (y : A) (m : Matcher y) (R : A -> Prop) :
+  (matcher_ret y m =m= R y) ->
+  (fun y => predicate_pred y (matcher_pred _ m y)) =m= R ->
+  forall (_ : Exception) (_ : mlist (branch A R y)),
+    (* R y =m= matcher_return y m -> *)
+    R y.
+  intros <- <-. auto using matcher_match. Defined.
+
+Arguments matcher_match_invert _ _ _ _ & _ _ _ _ .

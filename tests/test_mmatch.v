@@ -258,7 +258,7 @@ Mtac Do (
      ).
 Mtac Do (
        mmatch (nat -> Type) with
-       | branch_forallT (fun X P => M.unify_or_fail UniMatchNoRed P (fun x => Type))
+       | branch_forallT (fun X P => M.unify_or_fail UniMatchNoRed P (fun x => Type);; M.ret I)
       end
      ).
 
@@ -270,6 +270,6 @@ Mtac Do (
      ).
 Mtac Do (
        mmatch (nat -> Type) with
-       | [!Type] forall _ : X, P =n> M.unify_or_fail UniMatchNoRed P (fun x => Type)
+       | [!Type] forall _ : X, P =n> M.unify_or_fail UniMatchNoRed P (fun x => Type);; M.ret I
       end
      ).
