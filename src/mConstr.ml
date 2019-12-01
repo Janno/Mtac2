@@ -85,6 +85,7 @@ type 'a mconstr_head =
   | Mkind_of_term : (arg_type * arg_any) mconstr_head
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
   | Mdeclare_mind : (arg_any * arg_any * arg_any * arg_any) mconstr_head
+  | Minspect_mind : (arg_type * arg_type) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
@@ -147,6 +148,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mkind_of_term -> 2
   | Mreplace -> 6
   | Mdeclare_mind -> 4
+  | Minspect_mind -> 2
 
 
 let _mkconstr s = lazy (let (_, c) = mkUConstr ("M.M." ^ s) Evd.empty (Global.env ()) in c)
@@ -384,6 +386,8 @@ let isreplace = isconstant name_replace
 let name_declare_mind = constant_of_string "declare_mind"
 let isdeclare_mind = isconstant name_declare_mind
 
+let name_inspect_mind = constant_of_string "inspect_mind"
+let isinspect_mind = isconstant name_inspect_mind
 
 let mconstr_head_of h =
   match h with
@@ -501,6 +505,8 @@ let mconstr_head_of h =
       MHead Mreplace
   | _ when isdeclare_mind h ->
       MHead Mdeclare_mind
+  | _ when isinspect_mind h ->
+      MHead Minspect_mind
   | _ -> raise Not_found
 
 let mconstr_head_opt h =
@@ -650,3 +656,5 @@ let mconstr_of (type a) args (h : a mconstr_head) =
       MConstr (Mreplace, (args 0, args 1, args 2, args 3, args 4, args 5))
   | Mdeclare_mind ->
       MConstr (Mdeclare_mind, (args 0, args 1, args 2, args 3))
+  | Minspect_mind ->
+      MConstr (Minspect_mind, (args 0, args 1))

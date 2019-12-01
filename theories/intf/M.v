@@ -336,6 +336,9 @@ Definition declare_mind
   t unit.
   make. Qed.
 
+Definition inspect_mind {T: Type} (ind : T) : t Mind_Entry.
+  make. Qed.
+
 Arguments t _%type.
 
 Definition fmap {A:Type} {B:Type} (f : A -> B) (x : t A) : t B :=
