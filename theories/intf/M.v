@@ -328,40 +328,11 @@ Definition kind_of_term: forall{A: Type}, A -> t tm_kind.
 Definition replace {A B C} (x:A) : A =m= B -> t C -> t C.
   make. Qed.
 
-
-Definition ind_arity (params : MTele) := S.Sort *m MTele_ConstT (MTele) params.
-Definition ind_def (params : MTele) :=
-  string *m ind_arity params.
-
-Definition ind_arg {params} : ind_def params -> Type :=
-  fun '(m: _; sort; arity) =>
-    MTele_val (curry_sort Typeₛ
-                 (fun a' => MTele_Sort sort (apply_constT arity a'))
-              ).
-
-Definition inds_args {params} (sigs : mlist (ind_def params)) (to : Type) : Type :=
-  mfold_right (fun sig accu => ind_arg sig -> accu) to sigs.
-
-Definition constr_def (ind_mt : MTele) :=
-  string *m msigT (MTele_ConstT (ArgsOf ind_mt)).
-
-Definition constrs_def (ind_mt : MTele) : Type :=
-  mlist (constr_def ind_mt).
-
-Definition constrs_defs {params} (sigs : mlist (ind_def params)) (a : ArgsOf params) :=
-  mfold_right (fun '(m: _; _; ind) acc =>
-                 constrs_def (apply_constT ind a) *m acc
-              ) unit sigs.
-
-Definition constrs_defs_in_ctx {params} (sigs : mlist (ind_def params)) :=
-  inds_args sigs (MTele_val (curry_sort Typeₛ (constrs_defs sigs))).
-
 Definition declare_mind
            (polymorphic: bool)
            (params : MTele)
            (sigs : mlist (ind_def params))
            (constrs : constrs_defs_in_ctx sigs) :
-  (* t (mfold_right (fun '(m: _; _; mexistT _ mt_ind T) acc => MTele_val T *m acc)%type unit sigs). *)
   t unit.
   make. Qed.
 

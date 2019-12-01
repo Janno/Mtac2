@@ -7,6 +7,8 @@ CAMLDEBUG = "-g"
 -arg "-w -unrecognized-unicode"
 src/metaCoqInit.mlg
 src/metaCoqInstr.mli
+src/typelevel.ml
+src/typelevel.mli
 src/constrs.ml
 src/constrs.mli
 src/mtacNames.ml
