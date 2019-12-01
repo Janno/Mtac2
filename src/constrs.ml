@@ -432,6 +432,31 @@ module CoqMTele = struct
             let closure = EConstr.mkLambda (name, ty, r) in
             build_app mBaseBuilder sigma env [|ty; closure|]
 
+  let rec fold_left sigma env f acc t  =
+    match from_coq sigma env t with
+    | None -> acc
+    | Some ((typeX,contF)) ->
+        let (name,ty,t) = destLambda sigma contF in
+        let acc = f acc (name, typeX) in
+        fold_left sigma env f acc t
+
+  let rec fold_right sigma env f acc t  =
+    match from_coq sigma env t with
+    | None -> acc
+    | Some ((typeX,contF)) ->
+        let (_,_,t') = destLambda sigma contF in
+        f t (fold_right sigma env f acc t')
+
+  (* turns [[tele x .. z]] and [fun x .. z => T] into [forall x .. z, b(T)] *)
+  let to_foralls sigma env tele funs b =
+    let n_args, funs, binders = fold_left sigma env (fun (n,funs,acc) (name, typeX) ->
+      let (name, ty, funs) = destLambda sigma funs in
+      (n+1, funs, (name, ty)::acc)
+    ) (0, funs, []) tele
+    in
+    let sigma, funs = b sigma n_args funs in
+    let arity = List.fold_left (fun t (name, ty) -> EConstr.mkProd (name, ty, t)) funs binders in
+    sigma, n_args, arity
 end
 
 module CoqSigT = struct
