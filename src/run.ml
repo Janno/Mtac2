@@ -1048,33 +1048,6 @@ let rec fold_nat f t = function
       fold_nat f (f k t) (k - 1)
   | _ -> raise (Failure "fold_nat must not be called with negative values.")
 
-let rec mTele_fold_left sigma env f acc t  =
-  match CoqMTele.from_coq sigma env t with
-  | None -> acc
-  | Some ((typeX,contF)) ->
-      let (name,ty,t) = destLambda sigma contF in
-      let acc = f acc (name, typeX) in
-      mTele_fold_left sigma env f acc t
-
-let rec _mTele_fold_right sigma env f acc t  =
-  match CoqMTele.from_coq sigma env t with
-  | None -> acc
-  | Some ((typeX,contF)) ->
-      let (_,_,t') = destLambda sigma contF in
-      f t (_mTele_fold_right sigma env f acc t')
-
-(* turns [[tele x .. z]] and [fun x .. z => T] into [forall x .. z, b(T)] *)
-let mTele_to_foralls sigma env tele funs b =
-  let n_args, funs, binders = mTele_fold_left sigma env (fun (n,funs,acc) (name, typeX) ->
-    let (name, ty, funs) = destLambda sigma funs in
-    (n+1, funs, (name, ty)::acc)
-  ) (0, funs, []) tele
-  in
-  let sigma, funs = b sigma n_args funs in
-  let arity = List.fold_left (fun t (name, ty) -> EConstr.mkProd (name, ty, t)) funs binders in
-  sigma, n_args, arity
-
-
 (* let rec zip = function
  *   | ([], []) -> []
  *   | (x::l1, y::l2) -> (x,y):: zip (l1, l2)
@@ -1146,7 +1119,7 @@ let declare_mind env sigma poly params sigs mut_constrs =
      The LocalEntry list is reversed because we are using a left fold.
   *)
   let n_params, mind_entry_params, _, params =
-    mTele_fold_left sigma env (fun (n, acc, vars, params) (name, typeX) ->
+    CoqMTele.fold_left sigma env (fun (n, acc, vars, params) (name, typeX) ->
       let id = match name.binder_name with
         | Anonymous -> Namegen.next_name_away (Name (Id.of_string "")) vars
         | Name id -> id
@@ -1176,7 +1149,7 @@ let declare_mind env sigma poly params sigs mut_constrs =
             sigma, mkType univ
       ) in
       let (n_ind_args, ind_arity_binders) =
-        mTele_fold_left sigma env
+        CoqMTele.fold_left sigma env
           (fun (n, ind_sort) (name, ty) -> (n+1, (name, ty)::ind_sort))
           (0, [])
           ind_tele
@@ -1215,7 +1188,7 @@ let declare_mind env sigma poly params sigs mut_constrs =
       (* print_constr sigma env constr; *)
       let Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil)))) =
         CoqConstrDef.from_coq_vec sigma env constr in
-      let sigma, n_constr_args, constr_type = mTele_to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
+      let sigma, n_constr_args, constr_type = CoqMTele.to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
         let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
           (* print_constr sigma env t; *)
           let (arg, t) = CoqSigT.from_coq sigma env t in
