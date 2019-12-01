@@ -119,8 +119,13 @@ Definition typ_of {A : Type} (a : A) := A.
 Import TeleNotation.
 Notation P := [tele (T : Type) (k : nat)].
 Module M1.
-  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => ([tele _ : k = k])).
-  Definition mind_test := (M.declare_mind false P ([m: I2])).
+  Notation I2 := {| ind_def_name := "blubb__";
+                    ind_def_sig :=
+                      {| ind_sig_sort := Propₛ;
+                         ind_sig_arity := fun T k => [tele _ : k = k]
+                      |}
+                 |}.
+  Program Definition mind_test := (M.declare_mind false P ([m: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -142,22 +147,25 @@ Module M1.
 End M1.
 
 Module M2.
-  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => ([tele _ : k = k])).
-  Definition mind_test := (M.declare_mind false P ([m: I2])).
+  Notation I2 := {| ind_def_name := "blubb__";
+                    ind_def_sig :=
+                      {| ind_sig_sort := Propₛ;
+                         ind_sig_arity := fun T k => [tele _ : k = k]
+                      |}
+                 |}.
+  Program Definition mind_test := (M.declare_mind false P ([m: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
-  Definition testprog :=
+  Program Definition testprog :=
     mind_test
       (fun I2 T k =>
          (m:
           [m:
-             (m: "c1"%string,
-                 mexistT
-                   _
-                   (mTele (fun t : T => mBase))
-                   (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))))
-             )
+             {| constr_def_name := "c1";
+                constr_def_tele := [tele _ : T];
+                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))));
+             |}
           ];
           tt)
       ).
@@ -173,31 +181,38 @@ End M2.
 
 Module M3.
 
-Notation I1 := (m: "bla__"%string; Typeₛ; fun T k => [tele]).
-Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => [tele]).
-Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
+  Notation I1 :=
+    {| ind_def_name := "bla__";
+       ind_def_sig := {| ind_sig_sort := Typeₛ;
+                         ind_sig_arity := fun T k => [tele]
+                      |}
+    |}.
+  Notation I2 :=
+    {|
+      ind_def_name := "blubb__";
+      ind_def_sig := {| ind_sig_sort := Propₛ;
+                        ind_sig_arity := fun T k => [tele]
+                     |}
+    |}.
+Program Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
 Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
 (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
-Definition testprog :=
+Program Definition testprog :=
     mind_test
     (fun I1 I2 T k =>
        (m:
           [m:
-             (m: "c1"%string,
-                 mexistT
-                   _
-                   (mTele (fun t : I2 T k => mBase))
-                   (S.Fun (sort:=Typeₛ) (fun t => tt))
-             )
+             {| constr_def_name := "c1";
+                constr_def_tele := mTele (fun t : I2 T k => mBase);
+                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             |}
           ];
           [m:
-             (m: "c2"%string,
-                 mexistT
-                   _
-                   (mTele (fun t : I1 T k => mBase))
-                   (S.Fun (sort:=Typeₛ) (fun t => tt))
-             )
+             {| constr_def_name := "c2";
+                constr_def_tele := mTele (fun t : I2 T k => mBase);
+                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             |}
           ];
         tt)
     ).
@@ -210,23 +225,33 @@ Eval cbn in ltac:(mrun(
 End M3.
 
 Module M4.
-  Notation I1 := (m: "bla__"%string; Typeₛ; fun T k => [tele x y : nat]).
-  Notation I2 := (m: "blubb__"%string; Propₛ; fun T k => [tele _ : k = k]).
-  Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
+  Notation I1 :=
+    {| ind_def_name := "bla__";
+       ind_def_sig := {| ind_sig_sort := Typeₛ;
+                         ind_sig_arity := fun T k => [tele x y : nat]
+                      |}
+    |}.
+  Notation I2 :=
+    {|
+      ind_def_name := "blubb__";
+      ind_def_sig := {| ind_sig_sort := Propₛ;
+                        ind_sig_arity := fun T k => [tele _ : k = k]
+                     |}
+    |}.
+
+  Program Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
-  Definition testprog :=
+  Program Definition testprog :=
     mind_test
       (fun I1 I2 T k =>
          (m:
             [m:
-               (m: "c1"%string,
-                   mexistT
-                     _
-                     (mTele (fun t : I2 T k eq_refl => mBase))
-                     (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
-               )
+               {| constr_def_name := "c1";
+                  constr_def_tele := [tele _ : I2 T k eq_refl];
+                  constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
+               |}
             ];
           mnil;
           tt)
