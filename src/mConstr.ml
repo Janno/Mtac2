@@ -86,6 +86,7 @@ type 'a mconstr_head =
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
   | Mdeclare_mind : (arg_any * arg_any * arg_any) mconstr_head
   | Mexisting_instance : (arg_any * arg_any * arg_bool) mconstr_head
+  | Minspect_mind : (arg_type * arg_type) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
@@ -149,6 +150,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mreplace -> 6
   | Mdeclare_mind -> 3
   | Mexisting_instance -> 3
+  | Minspect_mind -> 2
 
 
 let _mkconstr s = lazy (let (_, c) = mkUConstr ("M.M." ^ s) Evd.empty (Global.env ()) in c)
@@ -389,6 +391,8 @@ let isdeclare_mind = isconstant name_declare_mind
 let name_existing_instance = constant_of_string "existing_instance"
 let isexisting_instance = isconstant name_existing_instance
 
+let name_inspect_mind = constant_of_string "inspect_mind"
+let isinspect_mind = isconstant name_inspect_mind
 
 let mconstr_head_of h =
   match h with
@@ -508,6 +512,8 @@ let mconstr_head_of h =
       MHead Mdeclare_mind
   | _ when isexisting_instance h ->
       MHead Mexisting_instance
+  | _ when isinspect_mind h ->
+      MHead Minspect_mind
   | _ -> raise Not_found
 
 let mconstr_head_opt h =
@@ -659,3 +665,5 @@ let mconstr_of (type a) args (h : a mconstr_head) =
       MConstr (Mdeclare_mind, (args 0, args 1, args 2))
   | Mexisting_instance ->
       MConstr (Mexisting_instance, (args 0, args 1, args 2))
+  | Minspect_mind ->
+      MConstr (Minspect_mind, (args 0, args 1))

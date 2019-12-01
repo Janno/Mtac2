@@ -1064,53 +1064,115 @@ let push_types env idl rl tl =
   List.fold_left3 (fun env id r t -> EConstr.push_rel (LocalAssum (make_annot (Name id) r,t)) env)
     env idl rl tl
 
-let _inspect_mind (env, sigma) t =
+let inspect_mind (env, sigma) t =
   (* let t = to_constr sigma t in *)
   let t_type, args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr t))) in
   if not (isInd sigma t_type) then
     None
   else
     let (mind, ind_i), instance = destInd sigma t_type in
-    let name = Nametab.basename_of_global (Names.GlobRef.IndRef (mind, ind_i)) in
-    let name = Names.Id.to_string name in
     let mbody = Environ.lookup_mind mind env in
 
     let _polymorphic = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
 
-    let _params = CoqMTele.of_rel_context sigma env (mbody.mind_params_ctxt) in
-    (* let _arities = Array.map (fun ind -> match ind.mind_arity with
-     *   | TemplateArity _ -> failwith "Template polymorphism is not yet supported in [inspect_mind]."
-     *   | RegularArity {mind_sort = sort; mind_user_arity = arity } ->
-     * ) (mbody.mind_packets) in *)
+    let sigma, params = CoqMTele.of_rel_context sigma env (mbody.mind_params_ctxt) in
+    let sigma_ref = ref sigma in
+    let descs = Array.map (fun ind ->
+      let sigma, sort = match ind.mind_arity with
+        | TemplateArity {template_level = level} ->
+            begin match Univ.Universe.level level with
+            | None -> CoqSort.mkSType env sigma
+            | Some level ->
+                if Univ.Level.is_prop level then
+                  CoqSort.mkSProp env sigma
+                else if Univ.Level.is_sprop level then
+                  failwith "SProp currently unsupported"
+                else
+                  CoqSort.mkSType env sigma
+            end
+        | RegularArity {mind_sort = sort; mind_user_arity = arity } ->
+            if Sorts.is_prop sort then
+              CoqSort.mkSProp env sigma
+            else if Sorts.is_sprop sort then
+              failwith "SProp currently unsupported"
+            else
+              CoqSort.mkSType env sigma
+      in
+      let sigma = !sigma_ref in
+      let sigma, arity_tele = CoqMTele.of_rel_context sigma env ind.mind_arity_ctxt in
 
-    let ind = Array.get (mbody.mind_packets) ind_i in
-    let sigma, dyn = mkdyn sigma env in
-    let sigma, constr_dyn = CoqConstr_Dyn.mkType sigma env in
-    (* let args = CList.firstn mbody.mind_nparams_rec args in *)
-    let sigma, l = Array.fold_right
-                     (fun i (sigma, l) ->
-                        let constr = Names.ith_constructor_of_inductive (mind, ind_i) i in
-                        let name = Nametab.basename_of_global (Names.GlobRef.ConstructRef ((mind, ind_i),i)) in
-                        let name = Names.Id.to_string name in
-                        let coq_constr = mkConstructU (constr, instance) in
-                        let ty = Retyping.get_type_of env sigma coq_constr in
-                        let sigma, dyn_constr = mkDyn ty coq_constr sigma env in
-                        let sigma, constr = CoqConstr_Dyn.to_coq sigma env [|dyn_constr; CoqString.to_coq name|] in
-                        CoqList.mkCons sigma env constr_dyn constr l
-                     )
-                     (* this is just a dirty hack to get the indices of constructors *)
-                     (Array.mapi (fun i t -> i+1) ind.mind_consnames)
-                     (CoqList.mkNil sigma env constr_dyn)
-    in
-    let indty = t_type in
-    let indtyty = Retyping.get_type_of env sigma indty in
-    let nparams = CoqN.to_coq (mbody.mind_nparams) in
-    let nindices = CoqN.to_coq (ind.mind_nrealargs) in
-    let sigma, indtydyn = mkDyn indtyty indty sigma env in
-    let sigma, ind_dyn = CoqInd_Dyn.to_coq sigma env [|indtydyn; CoqString.to_coq name; nparams; nindices; l|] in
-    (* let sigma, listty = CoqList.mkType sigma env dyn in
-     * let sigma, pair = CoqPair.mkPair sigma env dyn listty indtydyn l in *)
-    Some (sigma, ind_dyn)
+      (* arity contains parameters as well as indices. we need a version without parameters *)
+      let index_ctxt, _ = List.chop (List.length ind.mind_arity_ctxt - mbody.mind_nparams) ind.mind_arity_ctxt in
+      let sigma, arity_tele_wo_params = CoqMTele.of_rel_context sigma env index_ctxt in
+
+      let sigma, constr_def_ty = CoqConstrDef.mkTy sigma env [|arity_tele|] in
+
+      let sigma, clist =
+        Array.fold_right_i (
+          fun i (constr_ctx, constr_concl) (sigma, clist) ->
+            (* constr_ctx contains parameters. *)
+            (* contexts seem to be reversed => chop off parameters from the back *)
+            let constr_ctx, _ = List.chop (List.length constr_ctx - mbody.mind_nparams) constr_ctx in
+            Feedback.msg_debug (Printer.pr_rel_context env sigma constr_ctx);
+            let sigma, tele = CoqMTele.of_rel_context sigma env constr_ctx in
+            let _, args = decompose_appvect sigma (EConstr.of_constr constr_concl) in
+            let args = Array.to_list args in
+            (* args contain parameters. remove them to compute description of indices. *)
+            let _, args = List.chop mbody.mind_nparams args in
+            Feedback.msg_debug (Pp.int mbody.mind_nparams);
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma tele);
+            Feedback.msg_debug (Pp.pr_vertical_list (Printer.pr_econstr_env env sigma) args);
+            let sigma, argsof = CoqArgsOf.of_arguments sigma env arity_tele_wo_params args in
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma argsof);
+            let name = CoqString.to_coq (Id.to_string (Array.get ind.mind_consnames i)) in
+            let argsof_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof) constr_ctx in
+            let argsof_fun = EConstr.of_constr argsof_fun in
+            let sigma, constr_def = CoqConstrDef.to_coq sigma env [|arity_tele_wo_params; name; tele; argsof_fun|] in
+            let sigma, clist = CoqList.mkCons sigma env constr_def_ty constr_def clist in
+            sigma, clist
+        ) ind.mind_nf_lc
+          (CoqList.mkNil sigma env constr_def_ty)
+      in
+
+      let arity_tele_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) mbody.mind_params_ctxt in
+      let arity_tele_fun = EConstr.of_constr arity_tele_fun in
+      let sigma, ind_sig = CoqIndSig.to_coq sigma env [|params; sort; arity_tele_fun|] in
+      let name = CoqString.to_coq (Id.to_string ind.mind_typename) in
+      let sigma, ind_def = CoqIndDef.to_coq sigma env [|params; name; ind_sig |] in
+      sigma_ref := sigma;
+      sort, ind_def, clist
+      (* name, arity *)
+    ) (mbody.mind_packets) in
+    let sigma = !sigma_ref in
+    Feedback.msg_debug (Pp.pr_vertical_list (fun (_, ty, cs) ->
+      let open Pp in
+      Printer.pr_econstr_env env sigma ty ++
+      Printer.pr_econstr_env env sigma cs
+    ) (Array.to_list descs));
+
+    let ctxt = ref mbody.mind_params_ctxt in
+    let constrs = CoqUnit.mkTT in
+    let constrs = ref constrs in
+    let sigma_ref = ref sigma in
+
+    Array.iteri (fun i (sort, ind_def, clist) ->
+      let sigma = !sigma_ref in
+
+      let ind = Array.get mbody.mind_packets i in
+      let full_arity = ind.mind_arity_ctxt in
+      let ty = Term.it_mkProd_or_LetIn (EConstr.to_constr sigma sort) full_arity in
+      let name = ind.mind_typename in
+      ctxt := Rel.Declaration.LocalAssum (nameR name, ty) :: (!ctxt);
+
+      (* TODO: find out if this is the right associativity *)
+      (* THIS TYPE IS SHITE *)
+      let sigma, constrs = CoqPair.mkPair sigma env clist (!constrs) in
+
+      sigma_ref := sigma
+    )
+      descs;
+
+    Some (sigma, CoqUnit.mkTT)
 
 let declare_mind env sigma poly params sigs mut_constrs =
   let poly = CoqBool.from_coq sigma poly in
@@ -2197,6 +2259,12 @@ and primitive ctxt vms mh reduced_term =
       let hint_priority = Option.map (CoqN.from_coq (env, sigma)) prio in
       Classes.existing_instance global qualid (Some {hint_priority; hint_pattern= None});
       ereturn sigma (CoqUnit.mkTT)
+  | MConstr (Minspect_mind, (_, ind)) ->
+      match inspect_mind (env, sigma) (to_econstr ind) with
+      | Some (sigma, desc) ->
+          ereturn sigma desc
+      | None -> failwith "Not an inductive" (* TODO: proper exception *)
+
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function
    and x its arguments. *)

@@ -1,6 +1,5 @@
 open Constr
 open EConstr
-open Reductionops
 
 let reduce_value = Tacred.compute
 
@@ -203,7 +202,7 @@ end
 module CoqSig = struct
   let from_coq (env, sigma) constr =
     (* NOTE: Hightly unsafe *)
-    let (_, args) = decompose_appvect sigma (whd_all env sigma constr) in
+    let (_, args) = decompose_appvect sigma (Reductionops.whd_all env sigma constr) in
     args.(1)
 end
 
@@ -430,7 +429,7 @@ module CoqMTele = struct
             let ty = EConstr.of_constr ty in
             let sigma, r = of_rel_context sigma env ctx in
             let closure = EConstr.mkLambda (name, ty, r) in
-            build_app mBaseBuilder sigma env [|ty; closure|]
+            build_app mTeleBuilder sigma env [|ty; closure|]
 
   let rec fold_left sigma env f acc t  =
     match from_coq sigma env t with
@@ -444,8 +443,8 @@ module CoqMTele = struct
     match from_coq sigma env t with
     | None -> acc
     | Some ((typeX,contF)) ->
-        let (_,_,t') = destLambda sigma contF in
-        f t (fold_right sigma env f acc t')
+        let (name,ty,body) = destLambda sigma contF in
+        f name ty body (fold_right sigma env f acc body)
 
   (* turns [[tele x .. z]] and [fun x .. z => T] into [forall x .. z, b(T)] *)
   let to_foralls sigma env tele funs b =
@@ -457,6 +456,16 @@ module CoqMTele = struct
     let sigma, funs = b sigma n_args funs in
     let arity = List.fold_left (fun t (name, ty) -> EConstr.mkProd (name, ty, t)) funs binders in
     sigma, n_args, arity
+
+  (* turns arity [forall x .. z, S] into [(S, [tele x .. z])].  *)
+  let rec of_arity sigma env arity =
+    match kind sigma arity with
+    | Prod (name, ty, arity) ->
+        let sigma, s, tele = of_arity sigma env arity in
+        let body = mkLambda (name, ty, tele) in
+        let sigma, t = build_app mTeleBuilder sigma env [|ty; body|] in
+        sigma, s, t
+    | _ -> let sigma, t = build_app mBaseBuilder sigma env [||] in sigma, arity, t
 end
 
 module CoqSigT = struct
@@ -470,7 +479,34 @@ module CoqSigT = struct
     | None -> raise NotAmexistT
     | Some args -> (args.(2), args.(3))
 
+  let to_coq =
+    build_app mexistTBuilder
 end
+
+
+module CoqArgsOf = struct
+  open UConstrBuilder
+  let argsofBuilder = from_string "Mtac2.intf.MTele.ArgsOf"
+
+  let of_arguments sigma env tele args =
+    let sigma, args, argsof = CoqMTele.fold_right sigma env (
+      fun name ty body (sigma, args, acc) ->
+        let head, args = match args with
+          | [] -> failwith "Not enough arguments for telescope."
+          | head :: args ->  head, args
+        in
+        (* the type below is only valid in a context with binder 0 of type ty *)
+        let sigma, argsof_ty = build_app argsofBuilder sigma env [|body|] in
+        (* and here's it's put into a lambda that adds that binder *)
+        let predicate = mkLambda (name, ty, argsof_ty) in
+        let sigma, argsof = CoqSigT.to_coq sigma env [|ty; predicate; head; acc|] in
+        sigma, args, argsof
+    ) (sigma, List.rev args, CoqUnit.mkTT) tele
+    in
+    assert (args == []);
+    sigma, argsof
+end
+
 
 module CoqSort = struct
   open UConstrBuilder
@@ -517,8 +553,10 @@ end
 
 module type CoqRecord = sig
   val constructor : UConstrBuilder.t
+  val ty : UConstrBuilder.t
   exception NotInConstructorNormalForm
-  val from_coq : Evd.evar_map -> 'a -> Evd.econstr -> Evd.econstr array
+  val mkTy : Evd.evar_map -> Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
+  val from_coq : Evd.evar_map -> Environ.env -> Evd.econstr -> Evd.econstr array
   val to_coq :
     Evd.evar_map ->
     Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
@@ -526,13 +564,18 @@ end
 
 
 module MkCoqRecord (F : sig
+    val type_name : string
     val constructor_name : string
   end) : CoqRecord = struct
   open UConstrBuilder
 
+  let ty = from_string F.type_name
   let constructor = from_string F.constructor_name
 
   exception NotInConstructorNormalForm
+
+  let mkTy sigma env args =
+    build_app ty sigma env args
 
   let from_coq sigma env cterm =
     match from_coq constructor (env, sigma) cterm with
@@ -544,13 +587,16 @@ module MkCoqRecord (F : sig
 end
 
 module MkCoqRecordDefault (F : sig val path : string val type_name : string end) =
-  MkCoqRecord (struct let constructor_name = String.concat "" [F.path; "."; "Build_"; F.type_name] end)
+  MkCoqRecord (struct
+    let type_name = String.concat "" [F.path; "."; F.type_name]
+    let constructor_name = String.concat "" [F.path; "."; "Build_"; F.type_name]
+  end)
 
 module type CoqRecordVec = sig
   include CoqRecord
   module N : Typelevel.T
   val from_coq_vec :
-    Evd.evar_map -> 'a -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
+    Evd.evar_map -> Environ.env -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
 end
 open Typelevel.Nat
 module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end

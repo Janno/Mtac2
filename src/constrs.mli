@@ -152,7 +152,10 @@ module CoqMTele : sig
     ('b -> Names.Name.t Context.binder_annot * Evd.econstr -> 'b) ->
     'b -> Evd.econstr -> 'b
   val fold_right :
-    Evd.evar_map -> 'a -> (Evd.econstr -> 'b -> 'b) -> 'b -> Evd.econstr -> 'b
+    Evd.evar_map ->
+    'a ->
+    (Names.Name.t Context.binder_annot -> Evd.econstr -> Evd.econstr -> 'b -> 'b) ->
+    'b -> Evd.econstr -> 'b
   val to_foralls :
     Evd.evar_map ->
     Environ.env ->
@@ -160,6 +163,9 @@ module CoqMTele : sig
     Evd.econstr ->
     (Evd.evar_map -> int -> Evd.econstr -> 'b * Evd.econstr) ->
     'b * int * Evd.econstr
+
+  val of_arity :
+    Evd.evar_map -> Environ.env -> Evd.econstr -> Evd.evar_map * Evd.econstr * Evd.econstr
 end
 
 module CoqSigT : sig
@@ -168,6 +174,14 @@ module CoqSigT : sig
   val from_coq : Evd.evar_map -> Environ.env -> constr -> (constr * constr)
 end
 
+module CoqArgsOf : sig
+  val argsofBuilder : UConstrBuilder.t
+  val of_arguments :
+    Evd.evar_map ->
+    Environ.env ->
+    Evd.econstr ->
+    Evd.econstr list -> Evd.evar_map * Evd.econstr
+end
 
 module CoqSort : sig
   val mkSType : Environ.env -> Evd.evar_map -> Evd.evar_map * EConstr.t
@@ -196,8 +210,10 @@ end
 
 module type CoqRecord = sig
   val constructor : UConstrBuilder.t
+  val ty : UConstrBuilder.t
   exception NotInConstructorNormalForm
-  val from_coq : Evd.evar_map -> 'a -> Evd.econstr -> Evd.econstr array
+  val mkTy : Evd.evar_map -> Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
+  val from_coq : Evd.evar_map -> Environ.env -> Evd.econstr -> Evd.econstr array
   val to_coq :
     Evd.evar_map ->
     Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
@@ -207,7 +223,7 @@ module type CoqRecordVec = sig
   include CoqRecord
   module N : Typelevel.T
   val from_coq_vec :
-    Evd.evar_map -> 'a -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
+    Evd.evar_map -> Environ.env -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
 end
 open Typelevel.Nat
 module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
