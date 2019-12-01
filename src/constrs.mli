@@ -145,6 +145,21 @@ module CoqMTele : sig
   val of_rel_context :
     Evd.evar_map ->
     Environ.env -> Constr.rel_context -> Evd.evar_map * Evd.econstr
+
+  val fold_left :
+    Evd.evar_map ->
+    Environ.env ->
+    ('b -> Names.Name.t Context.binder_annot * Evd.econstr -> 'b) ->
+    'b -> Evd.econstr -> 'b
+  val fold_right :
+    Evd.evar_map -> 'a -> (Evd.econstr -> 'b -> 'b) -> 'b -> Evd.econstr -> 'b
+  val to_foralls :
+    Evd.evar_map ->
+    Environ.env ->
+    Evd.econstr ->
+    Evd.econstr ->
+    (Evd.evar_map -> int -> Evd.econstr -> 'b * Evd.econstr) ->
+    'b * int * Evd.econstr
 end
 
 module CoqSigT : sig
