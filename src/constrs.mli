@@ -142,6 +142,9 @@ module CoqMTele : sig
   exception NotAnMTele
 
   val from_coq : Evd.evar_map -> Environ.env -> constr -> (constr * constr) option
+  val of_rel_context :
+    Evd.evar_map ->
+    Environ.env -> Constr.rel_context -> Evd.evar_map * Evd.econstr
 end
 
 module CoqSigT : sig
@@ -175,3 +178,29 @@ module CoqConstr_Dyn : sig
   val from_coq : Evd.evar_map -> 'a -> EConstr.t -> EConstr.t array
   val to_coq : Evd.evar_map -> Environ.env -> EConstr.t array -> Evd.evar_map * EConstr.t
 end
+
+module type CoqRecord = sig
+  val constructor : UConstrBuilder.t
+  exception NotInConstructorNormalForm
+  val from_coq : Evd.evar_map -> 'a -> Evd.econstr -> Evd.econstr array
+  val to_coq :
+    Evd.evar_map ->
+    Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
+end
+
+module type CoqRecordVec = sig
+  include CoqRecord
+  module N : Typelevel.T
+  val from_coq_vec :
+    Evd.evar_map -> 'a -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
+end
+open Typelevel.Nat
+module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
+module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
+module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
+(* module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
+ * module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
+
+module CoqIndSig : CoqRecordVec3
+module CoqIndDef : CoqRecordVec3
+module CoqConstrDef : CoqRecordVec4

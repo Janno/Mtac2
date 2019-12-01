@@ -418,6 +418,20 @@ module CoqMTele = struct
         | Some _ -> None
         end
     | Some args -> Some (args.(0), args.(1))
+
+  let rec of_rel_context sigma env (ctx : Constr.rel_context) =
+    match ctx with
+    | [] -> build_app mBaseBuilder sigma env [||]
+    | decl :: ctx ->
+        let open Context.Rel.Declaration in
+        match decl with
+        | LocalDef _ -> failwith "Let bindings not yet supported in [inspect_mind]."
+        | LocalAssum (name, ty) ->
+            let ty = EConstr.of_constr ty in
+            let sigma, r = of_rel_context sigma env ctx in
+            let closure = EConstr.mkLambda (name, ty, r) in
+            build_app mBaseBuilder sigma env [|ty; closure|]
+
 end
 
 module CoqSigT = struct
@@ -475,6 +489,79 @@ module CoqInd_Dyn = struct
   let to_coq = build_app mkInd_dyn
 
 end
+
+module type CoqRecord = sig
+  val constructor : UConstrBuilder.t
+  exception NotInConstructorNormalForm
+  val from_coq : Evd.evar_map -> 'a -> Evd.econstr -> Evd.econstr array
+  val to_coq :
+    Evd.evar_map ->
+    Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
+end
+
+
+module MkCoqRecord (F : sig
+    val constructor_name : string
+  end) : CoqRecord = struct
+  open UConstrBuilder
+
+  let constructor = from_string F.constructor_name
+
+  exception NotInConstructorNormalForm
+
+  let from_coq sigma env cterm =
+    match from_coq constructor (env, sigma) cterm with
+    | None -> raise NotInConstructorNormalForm
+    | Some args -> args
+
+  let to_coq =
+    build_app constructor
+end
+
+module MkCoqRecordDefault (F : sig val path : string val type_name : string end) =
+  MkCoqRecord (struct let constructor_name = String.concat "" [F.path; "."; "Build_"; F.type_name] end)
+
+module type CoqRecordVec = sig
+  include CoqRecord
+  module N : Typelevel.T
+  val from_coq_vec :
+    Evd.evar_map -> 'a -> Evd.econstr -> (N.t, Evd.econstr) Typelevel.Vector.nlist
+end
+open Typelevel.Nat
+module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
+module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
+module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
+(* module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
+ * module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
+
+(* module MkCoqRecordVec2 (R : CoqRecord) ( ) : CoqRecordVec2 = struct
+ *   include R
+ *   module N = struct type t = o s s let wit = S (S O) end
+ *   let from_coq_vec sigma env cterm =
+ *     (\* let () = Feedback.msg_debug (Printer.pr_econstr_env (Global.env()) sigma cterm) in *\)
+ *     let arr = (from_coq sigma env cterm) in
+ *     (\* let () = Feedback.msg_debug (Pp.pr_vertical_list (Printer.pr_econstr_env (Global.env()) sigma) (Array.to_list arr)) in *\)
+ *     Typelevel.Vector.from_array N.wit arr
+ * end *)
+module MkCoqRecordVec3 (R : CoqRecord) ( ) : CoqRecordVec3 = struct
+  include R
+  module N = struct type t = o s s s let wit = S (S (S O)) end
+  let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
+end
+module MkCoqRecordVec4 (R : CoqRecord) ( ) : CoqRecordVec4 = struct
+  include R
+  module N = struct type t = o s s s s let wit = S (S (S (S O))) end
+  let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
+end
+
+module CoqIndSigRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_sig" end)
+module CoqIndSig = MkCoqRecordVec3 (CoqIndSigRecord) ()
+
+module CoqIndDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_def" end)
+module CoqIndDef = MkCoqRecordVec3 (CoqIndDefRecord) ()
+
+module CoqConstrDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def" end)
+module CoqConstrDef = MkCoqRecordVec4 (CoqConstrDefRecord) ()
 
 module CoqConstr_Dyn = struct
   open UConstrBuilder

@@ -20,6 +20,8 @@ open Evarconv
 open Constrs
 open CClosure
 
+open Typelevel.Vector
+
 let get_ts env = Conv_oracle.get_transp_state (Environ.oracle env)
 
 (** returns the i-th position of constructor c (starting from 0) *)
@@ -1089,6 +1091,54 @@ let push_types env idl rl tl =
   List.fold_left3 (fun env id r t -> EConstr.push_rel (LocalAssum (make_annot (Name id) r,t)) env)
     env idl rl tl
 
+let _inspect_mind (env, sigma) t =
+  (* let t = to_constr sigma t in *)
+  let t_type, args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr t))) in
+  if not (isInd sigma t_type) then
+    None
+  else
+    let (mind, ind_i), instance = destInd sigma t_type in
+    let name = Nametab.basename_of_global (Names.GlobRef.IndRef (mind, ind_i)) in
+    let name = Names.Id.to_string name in
+    let mbody = Environ.lookup_mind mind env in
+
+    let _polymorphic = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
+
+    let _params = CoqMTele.of_rel_context sigma env (mbody.mind_params_ctxt) in
+    (* let _arities = Array.map (fun ind -> match ind.mind_arity with
+     *   | TemplateArity _ -> failwith "Template polymorphism is not yet supported in [inspect_mind]."
+     *   | RegularArity {mind_sort = sort; mind_user_arity = arity } ->
+     * ) (mbody.mind_packets) in *)
+
+    let ind = Array.get (mbody.mind_packets) ind_i in
+    let sigma, dyn = mkdyn sigma env in
+    let sigma, constr_dyn = CoqConstr_Dyn.mkType sigma env in
+    (* let args = CList.firstn mbody.mind_nparams_rec args in *)
+    let sigma, l = Array.fold_right
+                     (fun i (sigma, l) ->
+                        let constr = Names.ith_constructor_of_inductive (mind, ind_i) i in
+                        let name = Nametab.basename_of_global (Names.GlobRef.ConstructRef ((mind, ind_i),i)) in
+                        let name = Names.Id.to_string name in
+                        let coq_constr = mkConstructU (constr, instance) in
+                        let ty = Retyping.get_type_of env sigma coq_constr in
+                        let sigma, dyn_constr = mkDyn ty coq_constr sigma env in
+                        let sigma, constr = CoqConstr_Dyn.to_coq sigma env [|dyn_constr; CoqString.to_coq name|] in
+                        CoqList.mkCons sigma env constr_dyn constr l
+                     )
+                     (* this is just a dirty hack to get the indices of constructors *)
+                     (Array.mapi (fun i t -> i+1) ind.mind_consnames)
+                     (CoqList.mkNil sigma env constr_dyn)
+    in
+    let indty = t_type in
+    let indtyty = Retyping.get_type_of env sigma indty in
+    let nparams = CoqN.to_coq (mbody.mind_nparams) in
+    let nindices = CoqN.to_coq (ind.mind_nrealargs) in
+    let sigma, indtydyn = mkDyn indtyty indty sigma env in
+    let sigma, ind_dyn = CoqInd_Dyn.to_coq sigma env [|indtydyn; CoqString.to_coq name; nparams; nindices; l|] in
+    (* let sigma, listty = CoqList.mkType sigma env dyn in
+     * let sigma, pair = CoqPair.mkPair sigma env dyn listty indtydyn l in *)
+    Some (sigma, ind_dyn)
+
 let declare_mind env sigma poly params sigs mut_constrs =
   let poly = CoqBool.from_coq sigma poly in
   let vars = vars_of_env env in
@@ -1112,10 +1162,10 @@ let declare_mind env sigma poly params sigs mut_constrs =
   (* let mind_entry_params = List.rev mind_entry_params in *)
   let sigma, inds = CoqList.from_coq_conv sigma env (
     fun sigma t ->
-      let (name, ind_sig) = CoqPair.from_coq (env, sigma) t in
+      let Cons (_, Cons (name, Cons (ind_sig, Nil))) = CoqIndDef.from_coq_vec sigma env t in
       (* print_constr sigma env t; *)
       (* print_constr sigma env ind_sig; *)
-      let (ind_sort, ind_tele) = CoqPair.from_coq (env, sigma) ind_sig in
+      let Cons (_, Cons (ind_sort, Cons (ind_tele, Nil))) = CoqIndSig.from_coq_vec sigma env ind_sig in
       let ind_tele = (strip_lambdas sigma ind_tele n_params) in
       let sigma, ind_sort = (
         let open CoqSort in
@@ -1163,8 +1213,8 @@ let declare_mind env sigma poly params sigs mut_constrs =
     let constrs, mut_constrs = CoqPair.from_coq (env, sigma) mut_constrs in
     let sigma, constrs = CoqList.from_coq_conv sigma env (fun sigma constr ->
       (* print_constr sigma env constr; *)
-      let name, constr = CoqPair.from_coq (env, sigma) constr in
-      let (constr_tele, constr_type) = CoqSigT.from_coq sigma env constr in
+      let Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil)))) =
+        CoqConstrDef.from_coq_vec sigma env constr in
       let sigma, n_constr_args, constr_type = mTele_to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
         let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
           (* print_constr sigma env t; *)
