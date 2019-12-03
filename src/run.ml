@@ -1066,18 +1066,28 @@ let push_types env idl rl tl =
 
 let inspect_mind (env, sigma) t =
   (* let t = to_constr sigma t in *)
-  let t_type, args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr t))) in
+  let t_type, t_args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr t))) in
   if not (isInd sigma t_type) then
     None
   else
     let (mind, ind_i), instance = destInd sigma t_type in
     let mbody = Environ.lookup_mind mind env in
 
-    let _polymorphic = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
+    (* let _polymorphic = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in *)
 
-    let sigma, params = CoqMTele.of_rel_context sigma env (mbody.mind_params_ctxt) in
+    let univs = EConstr.EInstance.kind sigma instance in
+    let pind = (mbody, univs) in
+
+    let param_ctx = Inductive.inductive_paramdecls pind in
+
+    Feedback.msg_debug (Printer.pr_rel_context env sigma param_ctx);
+
+    let sigma, params = CoqMTele.of_rel_context sigma env (param_ctx) in
     let sigma_ref = ref sigma in
     let descs = Array.map (fun ind ->
+
+      let sigma = !sigma_ref in
+
       let sigma, sort = match ind.mind_arity with
         | TemplateArity {template_level = level} ->
             begin match Univ.Universe.level level with
@@ -1098,31 +1108,53 @@ let inspect_mind (env, sigma) t =
             else
               CoqSort.mkSType env sigma
       in
-      let sigma = !sigma_ref in
-      let sigma, arity_tele = CoqMTele.of_rel_context sigma env ind.mind_arity_ctxt in
+
+
+      let ind_family = Inductiveops.make_ind_family (((mind, ind_i), univs), []) in
+
+
+      (* let ty = Typeops.judge_of_inductive env ((mind, ind_i), univs) in
+       * let ty = ty.uj_type in *)
+
+      let ty = Inductiveops.type_of_inductive env ((mind, ind_i), univs) in
+      let sigma, ty = Evarsolve.refresh_universes None env sigma (EConstr.of_constr ty) in
+      let ty = EConstr.Unsafe.to_constr ty in
+
+      (* TODO: replace by more efficient custom code matching on ind.mind_arity *)
+      (* let _, sort = Term.destArity ty in *)
+
+      let arity_ctx = Inductiveops.inductive_alldecls env ((mind, ind_i), univs) in
+      let sigma, arity_tele = CoqMTele.of_rel_context sigma env arity_ctx in
 
       (* arity contains parameters as well as indices. we need a version without parameters *)
-      let index_ctxt, _ = List.chop (List.length ind.mind_arity_ctxt - mbody.mind_nparams) ind.mind_arity_ctxt in
+      let index_ctxt, _ = List.chop (List.length ind.mind_arity_ctxt - mbody.mind_nparams) arity_ctx in
       let sigma, arity_tele_wo_params = CoqMTele.of_rel_context sigma env index_ctxt in
 
-      let sigma, constr_def_ty = CoqConstrDef.mkTy sigma env [|arity_tele|] in
+      let sigma, constr_def_ty = CoqConstrDef.mkTy sigma env [|arity_tele_wo_params|] in
+
+      let nf_lc = Inductiveops.get_constructors env ind_family in
 
       let sigma, clist =
         Array.fold_right_i (
-          fun i (constr_ctx, constr_concl) (sigma, clist) ->
+          fun i summary (sigma, clist) ->
             (* constr_ctx contains parameters. *)
             (* contexts seem to be reversed => chop off parameters from the back *)
+            let open Inductiveops in
+            let constr_ctx = summary.cs_args in
             let constr_ctx, _ = List.chop (List.length constr_ctx - mbody.mind_nparams) constr_ctx in
             Feedback.msg_debug (Printer.pr_rel_context env sigma constr_ctx);
             let sigma, tele = CoqMTele.of_rel_context sigma env constr_ctx in
-            let _, args = decompose_appvect sigma (EConstr.of_constr constr_concl) in
-            let args = Array.to_list args in
+            (* let _, args = decompose_appvect sigma (EConstr.of_constr constr_concl) in
+             * let args = Array.to_list args in *)
+            let args = List.map EConstr.of_constr (Array.to_list (summary.cs_concl_realargs)) in
             (* args contain parameters. remove them to compute description of indices. *)
             let _, args = List.chop mbody.mind_nparams args in
             Feedback.msg_debug (Pp.int mbody.mind_nparams);
             Feedback.msg_debug (Printer.pr_econstr_env env sigma tele);
             Feedback.msg_debug (Pp.pr_vertical_list (Printer.pr_econstr_env env sigma) args);
-            let sigma, argsof = CoqArgsOf.of_arguments sigma env arity_tele_wo_params args in
+            (* need to lift arity_tele_wo_params by constr_ctx many binders for ArgsOf *)
+            let lifted_arity_tele_wo_params = EConstr.Vars.lift (List.length constr_ctx) arity_tele_wo_params in
+            let sigma, argsof = CoqArgsOf.of_arguments sigma env lifted_arity_tele_wo_params args in
             Feedback.msg_debug (Printer.pr_econstr_env env sigma argsof);
             let name = CoqString.to_coq (Id.to_string (Array.get ind.mind_consnames i)) in
             let argsof_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof) constr_ctx in
@@ -1130,49 +1162,69 @@ let inspect_mind (env, sigma) t =
             let sigma, constr_def = CoqConstrDef.to_coq sigma env [|arity_tele_wo_params; name; tele; argsof_fun|] in
             let sigma, clist = CoqList.mkCons sigma env constr_def_ty constr_def clist in
             sigma, clist
-        ) ind.mind_nf_lc
+        ) nf_lc
           (CoqList.mkNil sigma env constr_def_ty)
       in
 
-      let arity_tele_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) mbody.mind_params_ctxt in
+      let arity_tele_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) param_ctx in
       let arity_tele_fun = EConstr.of_constr arity_tele_fun in
       let sigma, ind_sig = CoqIndSig.to_coq sigma env [|params; sort; arity_tele_fun|] in
       let name = CoqString.to_coq (Id.to_string ind.mind_typename) in
       let sigma, ind_def = CoqIndDef.to_coq sigma env [|params; name; ind_sig |] in
       sigma_ref := sigma;
-      sort, ind_def, clist
+      ty, sort, arity_tele_wo_params, ind_def, clist
       (* name, arity *)
     ) (mbody.mind_packets) in
     let sigma = !sigma_ref in
-    Feedback.msg_debug (Pp.pr_vertical_list (fun (_, ty, cs) ->
+    Feedback.msg_debug (Pp.pr_vertical_list (fun (_, _,_, ty, cs) ->
       let open Pp in
       Printer.pr_econstr_env env sigma ty ++
       Printer.pr_econstr_env env sigma cs
     ) (Array.to_list descs));
 
-    let ctxt = ref mbody.mind_params_ctxt in
-    let constrs = CoqUnit.mkTT in
-    let constrs = ref constrs in
-    let sigma_ref = ref sigma in
-
-    Array.iteri (fun i (sort, ind_def, clist) ->
-      let sigma = !sigma_ref in
-
+    let sigma, ctxt = Array.fold_left_i (fun i (sigma, ctxt) (ty, sort, _, _, _) ->
       let ind = Array.get mbody.mind_packets i in
-      let full_arity = ind.mind_arity_ctxt in
-      let ty = Term.it_mkProd_or_LetIn (EConstr.to_constr sigma sort) full_arity in
+      (* let full_arity = ind.mind_arity_ctxt in *)
+      (* let ty = Term.it_mkProd_or_LetIn (EConstr.to_constr sigma sort) full_arity in *)
       let name = ind.mind_typename in
-      ctxt := Rel.Declaration.LocalAssum (nameR name, ty) :: (!ctxt);
+      sigma, Rel.Declaration.LocalAssum (nameR name, ty) :: ctxt;
+    ) (sigma, [])
+      descs
+    in
+    let ctxt = List.append param_ctx ctxt in
 
-      (* TODO: find out if this is the right associativity *)
-      (* THIS TYPE IS SHITE *)
-      let sigma, constrs = CoqPair.mkPair sigma env clist (!constrs) in
+    let sigma, _pair_ty, pairs = Array.fold_right_i (
+      fun i (_, _, tele, _, clist) (sigma, pair_ty, pairs) ->
+        let sigma, ty = CoqConstrDef.mkTy sigma env [|tele|] in
+        let sigma, ty = CoqList.mkType sigma env ty in
+        let sigma, pairs = CoqPair.mkPair sigma env ty pair_ty clist pairs in
+        let sigma, pair_ty = CoqPair.mkType sigma env ty pair_ty in
+        sigma, pair_ty, pairs
+    ) descs (sigma, CoqUnit.mkType, CoqUnit.mkTT) in
 
-      sigma_ref := sigma
-    )
-      descs;
+    let constrs = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr pairs) ctxt in
+    let constrs = EConstr.of_constr constrs in
 
-    Some (sigma, CoqUnit.mkTT)
+    (* let sigma, constrs = Evarsolve.refresh_universes None env sigma constrs in *)
+
+    let sigma, inddef_ty = CoqIndDef.mkTy sigma env [|params|] in
+    let sigma, nil = CoqList.mkNil sigma env inddef_ty in
+    let sigma, inds = Array.fold_right (fun (_, _, _, ind_def, _) (simga, inds) -> CoqList.mkCons sigma env inddef_ty ind_def inds) descs (sigma, nil) in
+
+    let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
+
+    let sigma, mind = CoqMind.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] (* TODO *) in
+
+    Feedback.msg_debug (Printer.pr_econstr_env env sigma mind);
+
+    let params_given = min(List.length t_args) (mbody.mind_nparams) in
+    let indices_given = max(List.length t_args - mbody.mind_nparams) (0) in
+
+    let sigma, mind_entry = CoqMindEntry.to_coq sigma env [|mind; CoqN.to_coq ind_i; CoqN.to_coq params_given; CoqN.to_coq indices_given |] in
+
+    let sigma, mind_entry = Evarsolve.refresh_universes None env sigma mind_entry in
+    Some (sigma, mind_entry)
+
 
 let declare_mind env sigma poly params sigs mut_constrs =
   let poly = CoqBool.from_coq sigma poly in
