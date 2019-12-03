@@ -92,7 +92,6 @@ module MetaCoqRun = struct
       - [M concl]: then it returns [c]
       - [tactic]: then it returns [c (Goal concl evar)] *)
   let pretypeT env sigma concl evar c =
-    (* let sigma, ty = Typing.type_of ~refresh:true env sigma c in *)
     let ty = Retyping.get_type_of env sigma c in
     let b, sigma = ifM env sigma concl ty c in
     if b then

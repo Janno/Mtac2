@@ -65,18 +65,18 @@ Definition constrs_defs_in_ctx {params} (sigs : mlist (ind_def params)) :=
 
 Record Mind :=
   {
-    polymorphic: bool;
-    params : MTele;
-    sigs : mlist (ind_def params);
-    constrs : constrs_defs_in_ctx sigs;
+    mind_polymorphic: bool;
+    mind_params : MTele;
+    mind_ind_sigs : mlist (ind_def mind_params);
+    mind_constr_sigs : constrs_defs_in_ctx mind_ind_sigs;
   }.
 
 Record Mind_Entry :=
   {
     mind_entry_mind: Mind;
-    mind_entry_index: nat;
-    mind_entry_params_given: nat;
-    mind_entry_indices_given: nat;
+    mind_entry_index: N;
+    mind_entry_params_given: N;
+    mind_entry_indices_given: N;
   }.
 
 Record Case :=

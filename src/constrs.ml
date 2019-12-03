@@ -389,11 +389,14 @@ end
 module CoqPair = struct
   open UConstrBuilder
 
+  let prodBuilder = from_string "Mtac2.lib.Datatypes.mprod"
   let pairBuilder = from_string "Mtac2.lib.Datatypes.mpair"
 
   let mkPair sigma env tya tyb a b = build_app pairBuilder sigma env [|tya;tyb;a;b|]
 
   exception NotAPair
+
+  let mkType sigma env tya tyb = build_app prodBuilder sigma env [|tya; tyb|]
 
   let from_coq ctx cterm =
     match from_coq pairBuilder ctx cterm with
@@ -418,18 +421,16 @@ module CoqMTele = struct
         end
     | Some args -> Some (args.(0), args.(1))
 
-  let rec of_rel_context sigma env (ctx : Constr.rel_context) =
-    match ctx with
-    | [] -> build_app mBaseBuilder sigma env [||]
-    | decl :: ctx ->
-        let open Context.Rel.Declaration in
-        match decl with
-        | LocalDef _ -> failwith "Let bindings not yet supported in [inspect_mind]."
-        | LocalAssum (name, ty) ->
-            let ty = EConstr.of_constr ty in
-            let sigma, r = of_rel_context sigma env ctx in
-            let closure = EConstr.mkLambda (name, ty, r) in
-            build_app mTeleBuilder sigma env [|ty; closure|]
+  let of_rel_context sigma env (ctx : Constr.rel_context) =
+    List.fold_left (fun (sigma, acc) decl ->
+      let open Context.Rel.Declaration in
+      match decl with
+      | LocalDef _ -> failwith "Let bindings not supported in MTele."
+      | LocalAssum (name, ty) ->
+          let ty = EConstr.of_constr ty in
+          let closure = EConstr.mkLambda (name, ty, acc) in
+          build_app mTeleBuilder sigma env [|ty; closure|]
+    ) (build_app mBaseBuilder sigma env [||]) ctx
 
   let rec fold_left sigma env f acc t  =
     match from_coq sigma env t with
@@ -633,6 +634,12 @@ module CoqIndDef = MkCoqRecordVec3 (CoqIndDefRecord) ()
 
 module CoqConstrDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def" end)
 module CoqConstrDef = MkCoqRecordVec4 (CoqConstrDefRecord) ()
+
+module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind" end)
+module CoqMind = MkCoqRecordVec4 (CoqMindRecord) ()
+
+module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Entry" end)
+module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()
 
 module CoqConstr_Dyn = struct
   open UConstrBuilder
