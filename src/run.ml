@@ -1130,7 +1130,14 @@ let inspect_mind (env, sigma) t =
       let index_ctxt, _ = List.chop (List.length ind.mind_arity_ctxt - mbody.mind_nparams) arity_ctx in
       let sigma, arity_tele_wo_params = CoqMTele.of_rel_context sigma env index_ctxt in
 
-      let sigma, constr_def_ty = CoqConstrDef.mkTy sigma env [|arity_tele_wo_params|] in
+      let arity_tele_under_params =
+        EConstr.of_constr (
+          Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) param_ctx
+        )
+      in
+
+
+      let sigma, constr_def_ty = CoqConstrDefWop.mkTy sigma env [|params; arity_tele_under_params|] in
 
       let nf_lc = Inductiveops.get_constructors env ind_family in
 
@@ -1159,7 +1166,21 @@ let inspect_mind (env, sigma) t =
             let name = CoqString.to_coq (Id.to_string (Array.get ind.mind_consnames i)) in
             let argsof_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof) constr_ctx in
             let argsof_fun = EConstr.of_constr argsof_fun in
-            let sigma, constr_def = CoqConstrDef.to_coq sigma env [|arity_tele_wo_params; name; tele; argsof_fun|] in
+
+            let constr_tele_under_params =
+              EConstr.of_constr (
+                Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr tele) param_ctx
+              )
+            in
+
+            let argsof_fun_under_params =
+              EConstr.of_constr (
+                Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof_fun) param_ctx
+              )
+            in
+
+
+            let sigma, constr_def = CoqConstrDefWop.to_coq sigma env [|params; arity_tele_under_params; name; constr_tele_under_params; argsof_fun_under_params|] in
             let sigma, clist = CoqList.mkCons sigma env constr_def_ty constr_def clist in
             sigma, clist
         ) nf_lc
@@ -1191,12 +1212,14 @@ let inspect_mind (env, sigma) t =
     ) (sigma, [])
       descs
     in
-    let ctxt = List.append param_ctx ctxt in
+    (* The following line is no longer necessary as the constructors now quantify over parameters separately. *)
+    (* let ctxt = List.append param_ctx ctxt in *)
 
     let sigma, _pair_ty, pairs = Array.fold_right_i (
       fun i (_, _, tele, _, clist) (sigma, pair_ty, pairs) ->
-        let sigma, ty = CoqConstrDef.mkTy sigma env [|tele|] in
-        let sigma, ty = CoqList.mkType sigma env ty in
+        (* let sigma, ty = CoqConstrDef.mkTy sigma env [|tele|] in
+         * let sigma, ty = CoqList.mkType sigma env ty in *)
+        let ty = Retyping.get_type_of env sigma clist in
         let sigma, pairs = CoqPair.mkPair sigma env ty pair_ty clist pairs in
         let sigma, pair_ty = CoqPair.mkType sigma env ty pair_ty in
         sigma, pair_ty, pairs
@@ -1213,7 +1236,7 @@ let inspect_mind (env, sigma) t =
 
     let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
 
-    let sigma, mind = CoqMind.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] (* TODO *) in
+    let sigma, mind = CoqMindSpec.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] in
 
     Feedback.msg_debug (Printer.pr_econstr_env env sigma mind);
 

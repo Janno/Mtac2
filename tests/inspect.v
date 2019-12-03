@@ -249,98 +249,9 @@ U18650
 U18651
 .
 
-Definition T:
- Mind_Entry@{U18564 U18633 U18634 U18635 U18636 U18637 U18638 U18639 U18640 U18641 U18642 U18643 U18644 U18645 U18646 U18570 U18648 U18576 U18650 U18651}
-(* Mind_Entry@{U18514 U18537 U18538 U18539 U18540 U18541 U18542 U18543 U18544 U18545 U18546 U18547 U18548 U18549 U18550 U18551 U18552 U18553 U18554 U18555} *)
-  :=
- Build_Mind_Entry@{U18564 U18633 U18634
-    U18635 U18636 U18637 U18638
-    U18639 U18640 U18641 U18642
-    U18643 U18644 U18645 U18646
-    U18570 U18648 U18576 U18650
-    U18651}
-    (Build_Mind@{U18564 U18633 U18634 U18635
-       U18636 U18637 U18638 U18639
-       U18640 U18641 U18642 U18643
-       U18644 U18645 U18646 U18570
-       U18648 U18576 U18650 U18651} true
-       (@mTele@{U18564} Type@{U18556}
-          (fun A : Type@{U18556} =>
-           @mTele@{U18563} A (fun _ : A => mBase@{U18562})))
-       (@mcons@{U18642}
-          (ind_def@{U18564 U18646 U18642
-             U18643 U18570}
-             (@mTele@{U18564} Type@{U18556}
-                (fun A : Type@{U18556} =>
-                 @mTele@{U18563} A (fun _ : A => mBase@{U18562}))))
-          (Build_ind_def@{U18564 U18646 U18642
-             U18643 U18570}
-             (@mTele@{U18564} Type@{U18556}
-                (fun A : Type@{U18556} =>
-                 @mTele@{U18563} A (fun _ : A => mBase@{U18562})))
-             (String (Ascii.Ascii true false true true false true true false)
-                (String (Ascii.Ascii true false true false false true true false)
-                   (String (Ascii.Ascii true false false false true true true false) EmptyString)))
-             (Build_ind_sig@{U18564 U18646 U18642
-                U18643 U18570}
-                (@mTele@{U18564} Type@{U18556}
-                   (fun A : Type@{U18556} =>
-                    @mTele@{U18563} A (fun _ : A => mBase@{U18562})))
-                S.Prop_sort
-                (fun (A : Type@{U18556}) (_ : A) =>
-                 @mTele@{U18570} A (fun _ : A => mBase@{U18569}))))
-          (@mnil@{U18642}
-             (ind_def@{U18564 U18646 U18642
-                U18643 U18570}
-                (@mTele@{U18564} Type@{U18556}
-                   (fun A : Type@{U18556} =>
-                    @mTele@{U18563} A (fun _ : A => mBase@{U18562}))))))
-       (fun (_ : forall (A : Type@{U18556}) (_ : A) (_ : A), Prop)
-          (A : Type@{U18556}) (x : A) =>
-        @mpair@{U18648 U18648}
-          (mlist@{U18648}
-             (constr_def@{U18570 U18576 U18650
-                U18651}
-                (@mTele@{U18570} A (fun _ : A => mBase@{U18569})))) unit
-          (@mcons@{U18648}
-             (constr_def@{U18570 U18576 U18650
-                U18651}
-                (@mTele@{U18570} A (fun _ : A => mBase@{U18569})))
-             (Build_constr_def@{U18570 U18576 U18650
-                U18651}
-                (@mTele@{U18570} A (fun _ : A => mBase@{U18569}))
-                (String (Ascii.Ascii true false true true false true true false)
-                   (String (Ascii.Ascii true false true false false true true false)
-                      (String (Ascii.Ascii true false false false true true true false)
-                         (String (Ascii.Ascii true true true true true false true false)
-                            (String (Ascii.Ascii false true false false true true true false)
-                               (String (Ascii.Ascii true false true false false true true false)
-                                  (String (Ascii.Ascii false true true false false true true false)
-                                     (String (Ascii.Ascii false false true true false true true false) EmptyString))))))))
-                mBase@{U18576}
-                (@mexistT@{U18570 U18570} A
-                   (fun _ : A =>
-                    ArgsOf@{U18569 U18569} mBase@{U18569}) x
-                   tt))
-             (@mnil@{U18648}
-                (constr_def@{U18570 U18576 U18650
-                   U18651}
-                   (@mTele@{U18570} A (fun _ : A => mBase@{U18569}))))) tt)) N0
-    N0 N0
-
-
- : Mind_Entry@{U18514 U18537 U18538 U18539 U18540 U18541 U18542 U18543 U18544 U18545 U18546 U18547 U18548 U18549 U18550 U18551 U18552 U18553 U18554 U18555}
-.
-    has type
- "Mind_Entry@{U18564 U18633 U18634 U18635 U18636 U18637 U18638 U18639 U18640 U18641 U18642 U18643 U18644 U18645 U18646 U18570 U18648 U18576 U18650 U18651}"
-while it is expected to have type
- "Mind_Entry@{U18514 U18537 U18538 U18539 U18540 U18541 U18542 U18543 U18544 U18545 U18546 U18547 U18548 U18549 U18550 U18551 U18552 U18553 U18554 U18555}".
-
-Definition meq_mind : Mind_Entry := ltac:(mrun (M.inspect_mind (@meq))).
-
 Mtac Do (M.inspect_mind (@meq)).
 
-
+Definition meq_mind := ltac:(mrun (M.inspect_mind (@meq))).
 
 Polymorphic Inductive many_indices (A : Type) : forall x y : A, x =m= y -> Type :=.
 
