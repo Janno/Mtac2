@@ -135,6 +135,10 @@ module CoqPair : sig
 
   val mkPair : Evd.evar_map -> Environ.env -> types -> types -> constr -> constr -> Evd.evar_map * constr
 
+  val mkType :
+    Evd.evar_map ->
+    Environ.env -> Evd.econstr -> Evd.econstr -> Evd.evar_map * Evd.econstr
+
   val from_coq : (Environ.env * Evd.evar_map) -> constr -> constr * constr
 end
 
@@ -235,3 +239,5 @@ module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s e
 module CoqIndSig : CoqRecordVec3
 module CoqIndDef : CoqRecordVec3
 module CoqConstrDef : CoqRecordVec4
+module CoqMind : CoqRecordVec4
+module CoqMindEntry : CoqRecordVec4
