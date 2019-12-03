@@ -132,6 +132,16 @@ Fixpoint curry_val {s : Sort} {m : MTele} :
   end.
 
 
+Fixpoint apply_curry {s} {m} :
+  forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a) :=
+  match m as m return
+        forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a)
+  with
+  | mBase => fun f 'tt t => t
+  | mTele F => fun f '(mexistT _ x a) t => @apply_curry _ (F x) (fun args => f (mexistT _ x args)) _ t
+  end.
+
+
 (** Convert a MTele_Const `C : ∀ x .. z, T` into a dependently-typed
 telescope type `∀ x .. z, C x .. z` *)
 Fixpoint MTele_ConstSort {s : Sort} {n : MTele} : forall {T : s} (C : MTele_Const T n), MTele_Sort s n :=
