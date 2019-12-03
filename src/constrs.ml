@@ -603,8 +603,8 @@ open Typelevel.Nat
 module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
 module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
 module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
-(* module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
- * module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
+module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
+module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end
 
 (* module MkCoqRecordVec2 (R : CoqRecord) ( ) : CoqRecordVec2 = struct
  *   include R
@@ -625,6 +625,11 @@ module MkCoqRecordVec4 (R : CoqRecord) ( ) : CoqRecordVec4 = struct
   module N = struct type t = o s s s s let wit = S (S (S (S O))) end
   let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
 end
+module MkCoqRecordVec5 (R : CoqRecord) ( ) : CoqRecordVec5 = struct
+  include R
+  module N = struct type t = o s s s s s let wit = S (S (S (S (S O)))) end
+  let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
+end
 
 module CoqIndSigRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_sig" end)
 module CoqIndSig = MkCoqRecordVec3 (CoqIndSigRecord) ()
@@ -635,8 +640,11 @@ module CoqIndDef = MkCoqRecordVec3 (CoqIndDefRecord) ()
 module CoqConstrDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def" end)
 module CoqConstrDef = MkCoqRecordVec4 (CoqConstrDefRecord) ()
 
-module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind" end)
-module CoqMind = MkCoqRecordVec4 (CoqMindRecord) ()
+module CoqConstrDefWopRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def_wop" end)
+module CoqConstrDefWop = MkCoqRecordVec5 (CoqConstrDefWopRecord) ()
+
+module CoqMindSpecRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Spec" end)
+module CoqMindSpec = MkCoqRecordVec4 (CoqMindSpecRecord) ()
 
 module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Entry" end)
 module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()

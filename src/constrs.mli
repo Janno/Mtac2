@@ -233,11 +233,12 @@ open Typelevel.Nat
 module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
 module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
 module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
-(* module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
- * module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
+module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
+(* module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
 
 module CoqIndSig : CoqRecordVec3
 module CoqIndDef : CoqRecordVec3
 module CoqConstrDef : CoqRecordVec4
-module CoqMind : CoqRecordVec4
+module CoqConstrDefWop : CoqRecordVec5
+module CoqMindSpec : CoqRecordVec4
 module CoqMindEntry : CoqRecordVec4
