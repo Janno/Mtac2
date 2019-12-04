@@ -3,7 +3,9 @@ Import TeleNotation.
 
 Set Printing Universes.
 
+(* Set Printing All. *)
 Mtac Do (M.inspect_mind nat).
+
 
 
 Module TestMonoMono.

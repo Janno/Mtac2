@@ -241,4 +241,5 @@ module CoqIndDef : CoqRecordVec3
 module CoqConstrDef : CoqRecordVec4
 module CoqConstrDefWop : CoqRecordVec5
 module CoqMindSpec : CoqRecordVec4
+module CoqMind : CoqRecordVec3
 module CoqMindEntry : CoqRecordVec4
