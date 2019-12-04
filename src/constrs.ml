@@ -646,6 +646,9 @@ module CoqConstrDefWop = MkCoqRecordVec5 (CoqConstrDefWopRecord) ()
 module CoqMindSpecRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Spec" end)
 module CoqMindSpec = MkCoqRecordVec4 (CoqMindSpecRecord) ()
 
+module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind" end)
+module CoqMind = MkCoqRecordVec3 (CoqMindRecord) ()
+
 module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Entry" end)
 module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()
 

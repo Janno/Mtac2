@@ -132,13 +132,13 @@ Fixpoint curry_val {s : Sort} {m : MTele} :
   end.
 
 
-Fixpoint apply_curry {s} {m} :
+Fixpoint apply_curry_sort {s} {m} :
   forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a) :=
   match m as m return
         forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a)
   with
   | mBase => fun f 'tt t => t
-  | mTele F => fun f '(mexistT _ x a) t => @apply_curry _ (F x) (fun args => f (mexistT _ x args)) _ t
+  | mTele F => fun f '(mexistT _ x a) t => @apply_curry_sort _ (F x) (fun args => f (mexistT _ x args)) _ t
   end.
 
 
