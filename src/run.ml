@@ -1084,7 +1084,7 @@ let inspect_mind (env, sigma) t =
 
     let sigma, params = CoqMTele.of_rel_context sigma env (param_ctx) in
     let sigma_ref = ref sigma in
-    let descs = Array.map (fun ind ->
+    let descs = Array.mapi (fun ind_i ind ->
 
       let sigma = !sigma_ref in
 
@@ -1236,9 +1236,37 @@ let inspect_mind (env, sigma) t =
 
     let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
 
-    let sigma, mind = CoqMindSpec.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] in
+    let sigma, mind_spec = CoqMindSpec.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] in
 
-    Feedback.msg_debug (Printer.pr_econstr_env env sigma mind);
+    Feedback.msg_debug (Printer.pr_econstr_env env sigma mind_spec);
+
+    let sigma, _, inds, _, constrs = Array.fold_right_i (
+      fun ind_i (ty, _, _, _, _) (sigma, inds_ty, inds, constrs_ty, constrs) ->
+        let ind = EConstr.mkIndU ((mind, ind_i), instance) in
+        let ty = EConstr.of_constr ty in
+        let sigma, inds = CoqPair.mkPair sigma env ty inds_ty ind inds in
+        let sigma, inds_ty = CoqPair.mkType sigma env ty inds_ty in
+
+        let sigma, cs_ty, cs =
+          Array.fold_right_i
+            (fun j ty (sigma, cs_ty, cs) ->
+               let ty = EConstr.of_constr ty in
+               let c = EConstr.mkConstructUi (((mind, ind_i), instance), j+1) in
+               let sigma, cs = CoqPair.mkPair sigma env ty cs_ty c cs in
+               let sigma, cs_ty = CoqPair.mkType sigma env ty cs_ty in
+               sigma, cs_ty, cs
+            )
+            (Inductiveops.type_of_constructors env ((mind, ind_i), univs))
+            (sigma, CoqUnit.mkType, CoqUnit.mkTT)
+        in
+
+        let sigma, constrs = CoqPair.mkPair sigma env cs_ty constrs_ty cs constrs in
+        let sigma, constrs_ty = CoqPair.mkType sigma env cs_ty constrs_ty in
+
+        sigma, inds_ty, inds, constrs_ty, constrs
+    ) descs (sigma, CoqUnit.mkType, CoqUnit.mkTT, CoqUnit.mkType, CoqUnit.mkTT) in
+
+    let sigma, mind = CoqMind.to_coq sigma env [|mind_spec; inds; constrs |] in
 
     let params_given = min(List.length t_args) (mbody.mind_nparams) in
     let indices_given = max(List.length t_args - mbody.mind_nparams) (0) in
