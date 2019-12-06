@@ -407,10 +407,13 @@ end
 module CoqMTele = struct
   open UConstrBuilder
 
+  let tybuilder = from_string "Mtac2.intf.MTele.MTele"
   let mBaseBuilder = from_string "Mtac2.intf.MTele.mBase"
   let mTeleBuilder = from_string "Mtac2.intf.MTele.mTele"
 
   exception NotAnMTele
+
+  let mkType sigma env = build_app tybuilder sigma env [||]
 
   let from_coq sigma env cterm =
     match from_coq mTeleBuilder (env, sigma) cterm with

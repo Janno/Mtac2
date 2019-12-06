@@ -1080,13 +1080,10 @@ let inspect_mind (env, sigma) t =
 
     let param_ctx = Inductive.inductive_paramdecls pind in
 
-    Feedback.msg_debug (Printer.pr_rel_context env sigma param_ctx);
+    (* Feedback.msg_debug (Printer.pr_rel_context env sigma param_ctx); *)
 
     let sigma, params = CoqMTele.of_rel_context sigma env (param_ctx) in
-    let sigma_ref = ref sigma in
-    let descs = Array.mapi (fun ind_i ind ->
-
-      let sigma = !sigma_ref in
+    let sigma, descs = Array.fold_right_i (fun ind_i ind (sigma, descs) ->
 
       let sigma, sort = match ind.mind_arity with
         | TemplateArity {template_level = level} ->
@@ -1130,9 +1127,12 @@ let inspect_mind (env, sigma) t =
       let index_ctxt, _ = List.chop (List.length ind.mind_arity_ctxt - mbody.mind_nparams) arity_ctx in
       let sigma, arity_tele_wo_params = CoqMTele.of_rel_context sigma env index_ctxt in
 
+      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma arity_tele_wo_params); *)
+
+
       let arity_tele_under_params =
         EConstr.of_constr (
-          Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) param_ctx
+          Term.it_mkLambda_or_LetIn (EConstr.to_constr sigma arity_tele_wo_params) param_ctx
         )
       in
 
@@ -1149,20 +1149,21 @@ let inspect_mind (env, sigma) t =
             let open Inductiveops in
             let constr_ctx = summary.cs_args in
             let constr_ctx, _ = List.chop (List.length constr_ctx - mbody.mind_nparams) constr_ctx in
-            Feedback.msg_debug (Printer.pr_rel_context env sigma constr_ctx);
+            (* Feedback.msg_debug (Printer.pr_rel_context env sigma constr_ctx); *)
             let sigma, tele = CoqMTele.of_rel_context sigma env constr_ctx in
             (* let _, args = decompose_appvect sigma (EConstr.of_constr constr_concl) in
              * let args = Array.to_list args in *)
             let args = List.map EConstr.of_constr (Array.to_list (summary.cs_concl_realargs)) in
             (* args contain parameters. remove them to compute description of indices. *)
             let _, args = List.chop mbody.mind_nparams args in
-            Feedback.msg_debug (Pp.int mbody.mind_nparams);
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma tele);
-            Feedback.msg_debug (Pp.pr_vertical_list (Printer.pr_econstr_env env sigma) args);
+            (* Feedback.msg_debug (Pp.int mbody.mind_nparams);
+             * Feedback.msg_debug (Printer.pr_econstr_env env sigma tele);
+             * Feedback.msg_debug (Pp.pr_vertical_list (Printer.pr_econstr_env env sigma) args); *)
+
             (* need to lift arity_tele_wo_params by constr_ctx many binders for ArgsOf *)
             let lifted_arity_tele_wo_params = EConstr.Vars.lift (List.length constr_ctx) arity_tele_wo_params in
             let sigma, argsof = CoqArgsOf.of_arguments sigma env lifted_arity_tele_wo_params args in
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma argsof);
+            (* Feedback.msg_debug (Printer.pr_econstr_env env sigma argsof); *)
             let name = CoqString.to_coq (Id.to_string (Array.get ind.mind_consnames i)) in
             let argsof_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof) constr_ctx in
             let argsof_fun = EConstr.of_constr argsof_fun in
@@ -1187,35 +1188,38 @@ let inspect_mind (env, sigma) t =
           (CoqList.mkNil sigma env constr_def_ty)
       in
 
-      let arity_tele_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr arity_tele_wo_params) param_ctx in
+      let arity_tele_fun = Term.it_mkLambda_or_LetIn (EConstr.to_constr sigma arity_tele_wo_params) param_ctx in
       let arity_tele_fun = EConstr.of_constr arity_tele_fun in
+      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma arity_tele_fun); *)
       let sigma, ind_sig = CoqIndSig.to_coq sigma env [|params; sort; arity_tele_fun|] in
+      (* let sigma, ind_sig = Evarsolve.refresh_universes None env sigma ind_sig in *)
+      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma ind_sig); *)
       let name = CoqString.to_coq (Id.to_string ind.mind_typename) in
       let sigma, ind_def = CoqIndDef.to_coq sigma env [|params; name; ind_sig |] in
-      sigma_ref := sigma;
-      ty, sort, arity_tele_wo_params, ind_def, clist
+      (* let sigma, ind_def = Evarsolve.refresh_universes None env sigma ind_def in *)
+      sigma, (ty, sort, arity_tele_wo_params, ind_def, clist) :: descs
       (* name, arity *)
-    ) (mbody.mind_packets) in
-    let sigma = !sigma_ref in
-    Feedback.msg_debug (Pp.pr_vertical_list (fun (_, _,_, ty, cs) ->
-      let open Pp in
-      Printer.pr_econstr_env env sigma ty ++
-      Printer.pr_econstr_env env sigma cs
-    ) (Array.to_list descs));
+    ) (mbody.mind_packets) (sigma, []) in
+    (* Feedback.msg_debug (Pp.pr_vertical_list (fun (_, _,_, ty, cs) ->
+     *   let open Pp in
+     *   Printer.pr_econstr_env env sigma ty ++
+     *   Printer.pr_econstr_env env sigma cs
+     * ) (descs)); *)
 
-    let sigma, ctxt = Array.fold_left_i (fun i (sigma, ctxt) (ty, sort, _, _, _) ->
+    let sigma, ctxt = List.fold_left_i (fun i (sigma, ctxt) (ty, sort, _, _, _) ->
       let ind = Array.get mbody.mind_packets i in
       (* let full_arity = ind.mind_arity_ctxt in *)
       (* let ty = Term.it_mkProd_or_LetIn (EConstr.to_constr sigma sort) full_arity in *)
       let name = ind.mind_typename in
       sigma, Rel.Declaration.LocalAssum (nameR name, ty) :: ctxt;
-    ) (sigma, [])
+    ) 0
+      (sigma, [])
       descs
     in
     (* The following line is no longer necessary as the constructors now quantify over parameters separately. *)
     (* let ctxt = List.append param_ctx ctxt in *)
 
-    let sigma, _pair_ty, pairs = Array.fold_right_i (
+    let sigma, _pair_ty, pairs = List.fold_right_i (
       fun i (_, _, tele, _, clist) (sigma, pair_ty, pairs) ->
         (* let sigma, ty = CoqConstrDef.mkTy sigma env [|tele|] in
          * let sigma, ty = CoqList.mkType sigma env ty in *)
@@ -1223,27 +1227,52 @@ let inspect_mind (env, sigma) t =
         let sigma, pairs = CoqPair.mkPair sigma env ty pair_ty clist pairs in
         let sigma, pair_ty = CoqPair.mkType sigma env ty pair_ty in
         sigma, pair_ty, pairs
-    ) descs (sigma, CoqUnit.mkType, CoqUnit.mkTT) in
+    ) 0 descs (sigma, CoqUnit.mkType, CoqUnit.mkTT) in
 
-    let constrs = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr pairs) ctxt in
+    let constrs = Term.it_mkLambda_or_LetIn (EConstr.to_constr sigma pairs) ctxt in
     let constrs = EConstr.of_constr constrs in
 
     (* let sigma, constrs = Evarsolve.refresh_universes None env sigma constrs in *)
 
     let sigma, inddef_ty = CoqIndDef.mkTy sigma env [|params|] in
     let sigma, nil = CoqList.mkNil sigma env inddef_ty in
-    let sigma, inds = Array.fold_right (fun (_, _, _, ind_def, _) (simga, inds) -> CoqList.mkCons sigma env inddef_ty ind_def inds) descs (sigma, nil) in
+    let sigma, inds = List.fold_right (fun (_, _, _, ind_def, _) (sigma, inds) ->
+      let sigma, inds = CoqList.mkCons sigma env inddef_ty ind_def inds in
+      (* let sigma, inds = Evarsolve.refresh_universes None env sigma inds in *)
+      (* let sigma, ty = CoqList.mkType sigma env inddef_ty in *)
+      (* let sigma, ty = Evarsolve.refresh_universes None env sigma ty in *)
+      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds);
+       * Feedback.msg_debug (Printer.pr_econstr_env env sigma ty); *)
+      (* let sigma = Typing.check env sigma inds ty in *)
+      sigma, inds
+    ) descs (sigma, nil) in
+
+    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
 
     let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
 
     let sigma, mind_spec = CoqMindSpec.to_coq sigma env [|CoqBool.to_coq poly; params; inds; constrs |] in
 
-    Feedback.msg_debug (Printer.pr_econstr_env env sigma mind_spec);
+    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma mind_spec); *)
 
-    let sigma, _, inds, _, constrs = Array.fold_right_i (
-      fun ind_i (ty, _, _, _, _) (sigma, inds_ty, inds, constrs_ty, constrs) ->
+    (* let sigma, mind_spec = Evarsolve.refresh_universes None env sigma mind_spec in *)
+
+    (* let sigma, mind_spec_ty = CoqMindSpec.mkTy sigma env [||] in
+     *
+     * let sigma = Typing.check env sigma mind_spec mind_spec_ty in *)
+
+    (* Feedback.msg_debug (Pp.str "HERE"); *)
+
+    let sigma, _, inds, _, constrs = List.fold_right_i (
+      fun ind_i (ty, _, _, ind_def, _) (sigma, inds_ty, inds, constrs_ty, constrs) ->
+        let ind_i = mbody.mind_ntypes - ind_i - 1 in
         let ind = EConstr.mkIndU ((mind, ind_i), instance) in
         let ty = EConstr.of_constr ty in
+
+        (* Feedback.msg_debug (Printer.pr_econstr_env env sigma ind_def);
+         * Feedback.msg_debug (Pp.int ind_i);
+         * Feedback.msg_debug (Printer.pr_econstr_env env sigma ind); *)
+
         let sigma, inds = CoqPair.mkPair sigma env ty inds_ty ind inds in
         let sigma, inds_ty = CoqPair.mkType sigma env ty inds_ty in
 
@@ -1264,9 +1293,13 @@ let inspect_mind (env, sigma) t =
         let sigma, constrs_ty = CoqPair.mkType sigma env cs_ty constrs_ty in
 
         sigma, inds_ty, inds, constrs_ty, constrs
-    ) descs (sigma, CoqUnit.mkType, CoqUnit.mkTT, CoqUnit.mkType, CoqUnit.mkTT) in
+    ) 0 descs (sigma, CoqUnit.mkType, CoqUnit.mkTT, CoqUnit.mkType, CoqUnit.mkTT) in
+
+    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
 
     let sigma, mind = CoqMind.to_coq sigma env [|mind_spec; inds; constrs |] in
+
+    (* let sigma, mind = Evarsolve.refresh_universes None env sigma mind in *)
 
     let params_given = min(List.length t_args) (mbody.mind_nparams) in
     let indices_given = max(List.length t_args - mbody.mind_nparams) (0) in
@@ -2528,7 +2561,12 @@ let run (env0, sigma) ty t : data =
   | Val (sigma', v, stack, tr) ->
       assert (List.is_empty stack);
       let v = multi_subst_inv sigma' subs (to_econstr v) in
-      let sigma' = Typing.check env sigma' v ty in
+      let sigma' = try Typing.check env sigma' v ty with
+        | e ->
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma v);
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
+            raise e
+      in
       (* let sigma', _ = Typing.type_of env0 sigma' v in *)
       Val (sigma', v)
 
