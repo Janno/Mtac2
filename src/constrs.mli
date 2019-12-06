@@ -145,6 +145,8 @@ end
 module CoqMTele : sig
   exception NotAnMTele
 
+  val mkType : Evd.evar_map -> Environ.env -> Evd.evar_map * Evd.econstr
+
   val from_coq : Evd.evar_map -> Environ.env -> constr -> (constr * constr) option
   val of_rel_context :
     Evd.evar_map ->
