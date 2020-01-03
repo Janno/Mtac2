@@ -5,7 +5,7 @@ Set Universe Polymorphism.
 Unset Universe Minimization ToSet.
 Set Polymorphic Inductive Cumulativity.
 Set Printing Coercions.
-(* Set Printing Universes. *)
+Set Printing Universes.
 
 (** MTele: a telescope which represent nested binder
 
@@ -19,15 +19,15 @@ Inductive MTele : Type :=
 
 (** MTele_Const : A constant (i.e. binder independent) type-level interpretation
 of MTele. It constructs `∀ x .. z, T`. *)
-Fixpoint MTele_Const {s : Sort} (T : s) (n : MTele) : s :=
+Fixpoint MTele_Const@{M i o} {s : Sort} (T : s) (n : MTele@{M}) : stype_of@{i o} s :=
 match n with
 | mBase => T
 | mTele F => ForAll (fun x => MTele_Const T (F x))
 end.
 Definition MTele_ConstP (T : Prop) (n : MTele) : Prop := @MTele_Const Propₛ T n.
-Definition MTele_ConstT (T : Type) (n : MTele) : Type := @MTele_Const Typeₛ T n.
+Definition MTele_ConstT@{M i o} (T : Type@{i}) (n : MTele@{M}) : Type@{i} := @MTele_Const@{M i o} Typeₛ T n.
 
-Fixpoint MTele_const {s : Sort} {T : s} {n : MTele} : @MTele_Const s T n -> stype_of s :=
+Fixpoint MTele_const@{M i o} {s : Sort} {T : s} {n : MTele@{M}} : @MTele_Const s T n -> stype_of@{i o} s :=
   match n return MTele_Const T n -> _ with
   | mBase => fun _ => T
   | mTele F => fun C => ForAll (fun x => MTele_const (App C x))
@@ -37,7 +37,7 @@ Definition MTele_constP {T : Prop} {n} : MTele_ConstP T n -> Prop := @MTele_cons
 Definition MTele_constT {T : Type} {n} : MTele_ConstT T n -> Type := @MTele_const Typeₛ T n.
 
 (** MTele_Sort: compute `∀ x .. z, Type` from a given MTele *)
-Definition MTele_Sort (s : Sort) (n : MTele) : Type := MTele_ConstT (stype_of s) n.
+Definition MTele_Sort@{M i j o} (s : Sort) (n : MTele@{M}) : Type@{j} := MTele_ConstT@{M j o} (stype_of@{i j} s) n.
 Fixpoint MTele_Sort' (s : Sort) (n : MTele) : Type :=
   match n with
   | mBase => stype_of s
@@ -86,34 +86,34 @@ Definition MTele_valP {n} : MTele_Pr n -> Prop :=
 
 
 (** Currying and Uncurrying for Telescope Types and Functions *)
-Fixpoint ArgsOf (m : MTele) : Type :=
+Fixpoint ArgsOf@{M} (m : MTele@{M}) : Type@{M} :=
   match m with
   | mBase => unit
   | mTele f => msigT (fun x => ArgsOf (f x))
   end.
 
-Fixpoint apply_const {s : Sort} {m : MTele} {T : s} :
-  MTele_Const T m -> ArgsOf m -> T :=
+Fixpoint apply_const@{M i+} {s : Sort} {m : MTele@{M}} {T : stype_of@{i _} s} :
+  MTele_Const@{M _ _} T m -> ArgsOf m -> T :=
   match m with
   | mBase => fun t _ => t
   | mTele f => fun t '(mexistT _ x U) => apply_const (App t x) U
   end.
 
-Definition apply_constT {m : MTele} {T : Typeₛ} := @apply_const Typeₛ m T.
+Definition apply_constT@{M i o} {m : MTele@{M}} {T : Typeₛ} := @apply_const@{M i o} Typeₛ m T.
 Definition apply_constP {m : MTele} {T : Prop} := @apply_const Propₛ m T.
 
-Definition apply_sort {s : Sort} {m : MTele} :
-  MTele_Sort s m -> ArgsOf m -> stype_of s :=
+Definition apply_sort@{M i j o} {s : Sort} {m : MTele@{M}} :
+  MTele_Sort@{M i j o} s m -> ArgsOf@{M} m -> stype_of@{i j} s :=
   @apply_const Typeₛ m (stype_of s).
 
-Fixpoint apply_val {s : Sort} {m : MTele} :
-  forall {T : MTele_Sort s m} (v : MTele_val T) (a : ArgsOf m), apply_sort T a :=
+Fixpoint apply_val@{M+} {s : Sort} {m : MTele@{M}} :
+  forall {T : MTele_Sort@{M _ _ _} s m} (v : MTele_val T) (a : ArgsOf m), apply_sort T a :=
   match m with
   | mBase => fun _ v _ => v
   | mTele f => fun _ v '(mexistT _ x U) => apply_val (App v x) U
   end.
 
-Fixpoint curry_const {s : Sort} {m : MTele} {T : s} : (ArgsOf m -> T) -> MTele_Const T m :=
+Fixpoint curry_const@{M i o+} {s : Sort} {m : MTele@{M}} {T : stype_of@{i o} s} : (ArgsOf m -> T) -> MTele_Const@{M _ _} T m :=
   match m with
   | mBase => fun f => f tt
   | mTele F => fun f => Fun (fun x => curry_const (fun a => f (mexistT (fun x => ArgsOf _) x a)))
@@ -162,7 +162,13 @@ Fixpoint MTele_to {s : Sort} {B : s} {G: forall X, (X -> s) -> s} {n : MTele} (b
 (*   | mTele F => fun C t => MTele_ConstMap so G (App C t) *)
 (*   end. *)
 
-Definition MTele_ConstMap {si : Sort} (so : Sort) {n : MTele} {T : si} (G : T -> so) : forall (C : MTele_Const T n), MTele_Sort so n :=
+Definition MTele_ConstMap@{M ii io oi oo+}
+           {si : Sort}
+           (so : Sort)
+           {n : MTele@{M}}
+           {T : stype_of@{ii io} si}
+           (G : T -> stype_of@{oi oo} so) :
+  forall (C : MTele_Const@{M _ _} T n), MTele_Sort@{M _ _ _} so n :=
   fun C => curry_sort so (fun a => G (apply_const C a)).
 
 Fixpoint MTele_constmap_app {si : Sort} (so : Sort) {n : MTele} {T : si} {A : Type} (G : T -> A -> so) {struct n} :
