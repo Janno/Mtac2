@@ -98,10 +98,8 @@ Fixpoint apply_const@{M i+} {s : Sort} {m : MTele@{M}} {T : stype_of@{i _} s} :
   | mBase => fun t _ => t
   | mTele f => fun t '(mexistT _ x U) => apply_const (App t x) U
   end.
-Definition apply_constT {m T} := @apply_const Typeₛ m T.
-Definition apply_constP {m P} := @apply_const Propₛ m P.
 
-Definition apply_constT@{M i o} {m : MTele@{M}} {T : Typeₛ} := @apply_const@{M i o} Typeₛ m T.
+Definition apply_constT {m : MTele} {T : Typeₛ} := @apply_const Typeₛ m T.
 Definition apply_constP {m : MTele} {T : Prop} := @apply_const Propₛ m T.
 
 Definition apply_sort@{M i j o} {s : Sort} {m : MTele@{M}} :
