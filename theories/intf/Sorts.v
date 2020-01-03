@@ -16,15 +16,15 @@ Notation "'Typeₛ'" := Type_sort.
 Notation "'Propₛ'" := Prop_sort.
 
 (** Creates a fresh type according to [s] *)
-Definition stype_of (s : Sort) : Type :=
-  match s with Typeₛ => Type | Propₛ => Prop end.
+Definition stype_of@{ins out} (s : Sort) : Type@{out} :=
+  match s with Typeₛ => Type@{ins} | Propₛ => Prop end.
 Arguments stype_of !_ : simpl nomatch.
 
 (** When working with a sort [s], we cannot simply say "we have an
     element of [stype_of s]". For that, we make [selem_of T], where
     [T] is a [stype_of s]. *)
-Definition selem_of@{i j+} {s : Sort} : stype_of@{i j} s -> Type@{j} :=
-  match s return stype_of s -> Type@{j} with
+Definition selem_of@{ins out} {s : Sort} : stype_of@{ins out} s -> Type@{ins} :=
+  match s return stype_of s -> Type@{ins} with
   | Typeₛ => fun x => x
   | Propₛ => fun x => x
   end.
