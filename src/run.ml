@@ -1421,8 +1421,8 @@ let declare_mind env sigma poly params sigs mut_constrs =
   let arities = List.map (fun (_,_,arities,_,_) -> arities) inds in
   let arityconcl = List.map (fun (_, _, _, arity_concl,_) -> None) inds in
   let constructors = List.map (fun vscs ->
-    let vscsimpls = List.map (fun (v, c) -> (v, EConstr.Unsafe.to_constr c, [])) vscs in
-    List.split3 vscsimpls
+    let vscsimpls = List.map (fun (v, c) -> (v, EConstr.Unsafe.to_constr c)) vscs in
+    List.split vscsimpls
   ) constrs in
 
   (* TODO: compute from sorts *)
