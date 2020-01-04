@@ -24,23 +24,23 @@ Record Ind_dyn :=
     }.
 
 
-Record ind_sig {params : MTele} : Type :=
+Record ind_sig@{p pi po i} {params : MTele@{p}} : Type :=
   {
     ind_sig_sort : S.Sort;
-    ind_sig_arity : MTele_ConstT MTele params;
+    ind_sig_arity : MTele_ConstT@{p pi po} MTele@{i} params;
   }.
 Arguments ind_sig _ : clear implicits.
 
 (* Definition ind_arity (params : MTele) := S.Sort *m MTele_ConstT (MTele) params. *)
-Record ind_def {params: MTele} : Type :=
+Record ind_def@{p+} {params: MTele@{p}} : Type :=
   { ind_def_name : string; ind_def_sig : ind_sig params }.
 Arguments ind_def _ : clear implicits.
 
-Definition ind_arg {params} (i : ind_def params) : Type :=
+Definition ind_arg@{p+} {params : MTele@{p}} (i : ind_def params) : Type :=
   let sort := ind_sig_sort (ind_def_sig i) in
   let arity := ind_sig_arity (ind_def_sig i) in
     MTele_val (curry_sort Typeₛ
-                 (fun a' => MTele_Sort sort (apply_constT arity a'))
+                 (fun a' : ArgsOf@{p} params => MTele_Sort sort (apply_constT arity a'))
               ).
 
 Definition inds_args {params} (sigs : mlist (ind_def params)) (to : Type) : Type :=
@@ -240,20 +240,16 @@ Fixpoint zip_dep_fold {A} {F : A -> Type} {l}
   | mcons a l => fun '(m: fa, t) => g _ fa *m zip_dep_fold g t
   end.
 
-Record Match :=
-  {
-    match_sort: S.Sort;
-    match_param_tele: MTele;
-    match_ind_def: ind_def match_param_tele;
-    match_ind : ind_arg match_ind_def;
-    match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def));
-    match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig;
-    match_param_args: ArgsOf match_param_tele;
-    (** The return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
-    match_return_predicate: return_predicate_type match_param_args match_ind match_sort;
-    match_indices: indices_of match_ind_def match_param_args;
-    match_val: val_of_ind match_ind match_indices;
-    match_branches:
+Definition match_branches_type
+    {match_sort: S.Sort}
+    {match_param_tele: MTele}
+    {match_ind_def: ind_def match_param_tele}
+    {match_ind : ind_arg match_ind_def}
+    {match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def))}
+    {match_param_args: ArgsOf match_param_tele}
+    (match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig)
+    (match_return_predicate: return_predicate_type match_param_args match_ind match_sort)
+  :=
       zip_dep_fold
         (fun (csig : constr_def_wop _) (c: constr_def_value_wop _ csig) =>
            (* [csig     ≈ ∀ x .. y, Ind j .. k] *)
@@ -280,7 +276,22 @@ Record Match :=
                  )
              )
         )
-        match_constrs
+        match_constrs.
+
+Record Match :=
+  {
+    match_sort: S.Sort;
+    match_param_tele: MTele;
+    match_ind_def: ind_def match_param_tele;
+    match_ind : ind_arg match_ind_def;
+    match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def));
+    match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig;
+    match_param_args: ArgsOf match_param_tele;
+    (** The return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
+    match_return_predicate: return_predicate_type match_param_args match_ind match_sort;
+    match_indices: indices_of match_ind_def match_param_args;
+    match_val: val_of_ind match_ind match_indices;
+    match_branches: match_branches_type match_constrs match_return_predicate;
   }.
 
 
