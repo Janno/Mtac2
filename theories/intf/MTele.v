@@ -119,7 +119,7 @@ Fixpoint curry_const@{M i o+} {s : Sort} {m : MTele@{M}} {T : stype_of@{i o} s} 
   | mTele F => fun f => Fun (fun x => curry_const (fun a => f (mexistT (fun x => ArgsOf _) x a)))
   end.
 
-Definition curry_sort (s : Sort) {m : MTele} : _ -> MTele_Sort s m :=
+Definition curry_sort@{M i j o} (s : Sort) {m : MTele@{M}} : _ -> MTele_Sort@{M i j o} s m :=
   @curry_const Typeₛ m (stype_of s).
 
 Fixpoint curry_val {s : Sort} {m : MTele} :
@@ -129,11 +129,10 @@ Fixpoint curry_val {s : Sort} {m : MTele} :
   | mTele F => fun T f => Fun (fun x => curry_val (fun a => f (mexistT _ _ _)))
   end.
 
-
-Fixpoint apply_curry_sort {s} {m} :
-  forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a) :=
+Fixpoint apply_curry_sort@{M i j o} {s} {m : MTele@{M}} :
+  forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort@{M i j o} s f) a -> selem_of@{i j} (f a) :=
   match m as m return
-        forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort s f) a -> selem_of (f a)
+        forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort@{M i j o} s f) a -> selem_of@{i j} (f a)
   with
   | mBase => fun f 'tt t => t
   | mTele F => fun f '(mexistT _ x a) t => @apply_curry_sort _ (F x) (fun args => f (mexistT _ x args)) _ t

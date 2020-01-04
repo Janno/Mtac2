@@ -97,13 +97,12 @@ Definition constr_def_value_wop
   MTele_val (
       curry_sort
         Typeₛ
-        (fun p_args =>
-           let c_params := apply_constT (constr_def_wop_tele c) p_args in
+        (fun p_args =>          (* packed parameters of [i] *)
            let c_inds := apply_val (s:=Typeₛ) (constr_def_wop_indices c) p_args in
            let c_inds := apply_curry_sort c_inds in
            let ia := apply_val (s:=Typeₛ) ia p_args in
            let ia := apply_curry_sort ia in
-           MTele_sort (
+           MTele_val (
                curry_sort
                  _
                  (fun c_args =>
@@ -139,7 +138,8 @@ Definition inds {params} : forall (sigs : mlist (ind_def params)), Type :=
                  ind_arg ind_def *m acc
               ) unit.
 
-Fixpoint constrs_type {params} {sig : ind_def params} (ia : ind_arg sig) :
+(* The function below introduces too strict universe constraints. *)
+Definition constrs_type {params} {sig : ind_def params} (ia : ind_arg sig) :
   forall (cs : mlist (constr_def_wop (ind_sig_arity (ind_def_sig sig)))), Type :=
   mfold_right (fun c acc => constr_def_value_wop ia c *m acc) unit.
 
@@ -201,6 +201,88 @@ Record Mind_Entry :=
     mind_entry_params_given: N;
     mind_entry_indices_given: N;
   }.
+
+(* Set Printing Universes. *)
+
+Definition indices_of {params} (i: ind_def params) (p_args : ArgsOf params) :=
+  ArgsOf (apply_constT (ind_sig_arity (ind_def_sig i)) p_args).
+
+Definition val_of_ind
+           {params}
+           {i : ind_def params}
+           {p_args : ArgsOf params}
+           (ia : ind_arg i)
+           (i_args : indices_of i p_args)
+ : Type :=
+  let ia := apply_val (s:=Typeₛ) ia p_args in
+  let ia := apply_curry_sort ia in
+  apply_sort ia i_args
+.
+
+Definition return_predicate_type
+           {params}
+           {i : ind_def params}
+           (p_args : ArgsOf params)
+           (ia : ind_arg i)
+           (s : S.Sort)
+  : Type :=
+    MTele_val
+      (
+        curry_sort Typeₛ (fun i_args => apply_sort (apply_curry_sort (apply_val (s:=Typeₛ) ia p_args)) i_args -> s)
+      ).
+
+Fixpoint zip_dep_fold {A} {F : A -> Type} {l}
+  (g : forall a, F a -> Type):
+    mfold_right (fun a acc => F a *m acc) unit l ->
+    Type :=
+  match l as l return mfold_right (fun a acc => F a *m acc) unit l -> Type with
+  | mnil => fun 'tt => unit
+  | mcons a l => fun '(m: fa, t) => g _ fa *m zip_dep_fold g t
+  end.
+
+Record Match :=
+  {
+    match_sort: S.Sort;
+    match_param_tele: MTele;
+    match_ind_def: ind_def match_param_tele;
+    match_ind : ind_arg match_ind_def;
+    match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def));
+    match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig;
+    match_param_args: ArgsOf match_param_tele;
+    (** The return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
+    match_return_predicate: return_predicate_type match_param_args match_ind match_sort;
+    match_indices: indices_of match_ind_def match_param_args;
+    match_val: val_of_ind match_ind match_indices;
+    match_branches:
+      zip_dep_fold
+        (fun (csig : constr_def_wop _) (c: constr_def_value_wop _ csig) =>
+           (* [csig     ≈ ∀ x .. y, Ind j .. k] *)
+           (* [c : csig ≈ λ x .. y, constr] *)
+           (* trying to build:
+              [∀ x .. y, R j .. k (c x .. y)]
+            *)
+           let c := apply_val (s:=Typeₛ) c match_param_args in
+           let c := apply_curry_sort c in
+           (* quantify over [x .. y] *)
+           MTele_val
+             (s:=match_sort)
+             (n:=apply_constT (constr_def_wop_tele csig) match_param_args)
+             (
+               curry_sort
+                 match_sort
+                 (fun c_args : ArgsOf (apply_constT (constr_def_wop_tele csig) match_param_args) =>
+                    (* [c_args ≈ x .. y] *)
+                    let c := apply_val (s:=ind_sig_sort _) c c_args in
+                    let c : apply_sort _ _ := apply_curry_sort c in
+                    let Rjk := apply_val (s:=Typeₛ) match_return_predicate _ in
+                    let Rjk := apply_curry_sort Rjk in
+                    Rjk c
+                 )
+             )
+        )
+        match_constrs
+  }.
+
 
 Record Case :=
     mkCase {
