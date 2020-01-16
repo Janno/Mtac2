@@ -189,6 +189,80 @@ module CoqList = GenericList (struct
     let typename = "Mtac2.lib.Datatypes.mlist"
   end)
 
+
+module type NELIST = sig
+  val mkNil : Evd.evar_map -> Environ.env -> types -> constr -> Evd.evar_map * constr
+  val mkCons : Evd.evar_map -> Environ.env -> types -> constr -> constr -> Evd.evar_map * constr
+  val mkType : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * types
+
+  exception NotANEList of constr
+
+  val from_coq : Evd.evar_map -> Environ.env -> constr -> constr list
+
+  (** Allows skipping an element in the conversion *)
+  exception Skip
+  val from_coq_conv : Evd.evar_map -> Environ.env -> (Evd.evar_map -> constr -> Evd.evar_map * 'a) -> constr -> Evd.evar_map * 'a list
+
+  val to_coq : Evd.evar_map -> Environ.env -> types -> (Evd.evar_map -> 'a -> Evd.evar_map * constr) -> 'a list -> Evd.evar_map * constr
+end
+
+module GenericNonEmptyList (LP : ListParams) = struct
+  open UConstrBuilder
+
+  let listBuilder = from_string LP.typename
+  let nilBuilder  = from_string LP.nilname
+  let consBuilder = from_string LP.consname
+
+  let mkType sigma env ty = build_app listBuilder sigma env [|ty|]
+  let mkNil sigma env t x = build_app nilBuilder sigma env [|t ; x|]
+  let mkCons sigma env t x xs = build_app consBuilder sigma env [| t ; x ; xs |]
+
+  exception Skip
+  exception NotANEList of constr
+  (* given a list of terms and a convertion function fconv
+     it creates a list of elements using the converstion function.
+     if fconv raises Skip, that element is not included.
+     if the list is ill-formed, an exception NotAList is raised. *)
+  let from_coq_conv sigma env (fconv : Evd.evar_map -> constr -> Evd.evar_map * 'a) cterm =
+    let rec fcc sigma cterm =
+      match from_coq consBuilder (env, sigma) cterm with
+      | None ->
+          begin match from_coq nilBuilder (env, sigma) cterm with
+          | None -> raise (NotANEList cterm)
+          | Some args ->
+              let sigma, h = fconv sigma args.(1) in
+              sigma, h :: []
+          end
+      | Some args ->
+          let (sigma, tail) = fcc sigma args.(2) in
+          try
+            let (sigma, h) = fconv sigma args.(1) in
+            (sigma, h :: tail)
+          with Skip ->
+            (sigma, tail)
+    in
+    fcc sigma cterm
+
+  let from_coq sigma env t =
+    (* it is safe to throw away sigma here because we are not changing it *)
+    snd (from_coq_conv sigma env (fun sigma (x:constr)->(sigma, x)) t)
+
+  let rec to_coq sigma env ty f l =
+    match l with
+    | [] -> failwith "List empty"
+    | e :: [] -> let sigma, t = f sigma e in mkNil sigma env ty t
+    | e :: l ->
+        let sigma, t = f sigma e in
+        let sigma, l = to_coq sigma env ty f l in
+        mkCons sigma env ty t l
+end
+
+module CoqNEList = GenericNonEmptyList (struct
+    let nilname = "Mtac2.lib.NEList.ne_sing"
+    let consname = "Mtac2.lib.NEList.ne_cons"
+    let typename = "Mtac2.lib.NEList.nelist"
+  end)
+
 module CoqEq = struct
   open UConstrBuilder
 

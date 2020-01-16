@@ -1219,15 +1219,17 @@ let inspect_mind (env, sigma) t =
     (* The following line is no longer necessary as the constructors now quantify over parameters separately. *)
     (* let ctxt = List.append param_ctx ctxt in *)
 
-    let sigma, _pair_ty, pairs = List.fold_right_i (
-      fun i (_, _, tele, _, clist) (sigma, pair_ty, pairs) ->
-        (* let sigma, ty = CoqConstrDef.mkTy sigma env [|tele|] in
-         * let sigma, ty = CoqList.mkType sigma env ty in *)
+    let sigma, (_pair_ty, pairs) = Utils.NEList.fold_right_i (
+      fun i (_, _, tele, _, clist) (sigma, acc) ->
         let ty = Retyping.get_type_of env sigma clist in
-        let sigma, pairs = CoqPair.mkPair sigma env ty pair_ty clist pairs in
-        let sigma, pair_ty = CoqPair.mkType sigma env ty pair_ty in
-        sigma, pair_ty, pairs
-    ) 0 descs (sigma, CoqUnit.mkType, CoqUnit.mkTT) in
+        match acc with
+        | Some (pair_ty, pairs) ->
+            let sigma, pairs = CoqPair.mkPair sigma env ty pair_ty clist pairs in
+            let sigma, pair_ty = CoqPair.mkType sigma env ty pair_ty in
+            sigma, (pair_ty, pairs)
+        | None ->
+            sigma, (ty, clist)
+    ) 0 descs sigma in
 
     let constrs = Term.it_mkLambda_or_LetIn (EConstr.to_constr sigma pairs) ctxt in
     let constrs = EConstr.of_constr constrs in
@@ -1235,17 +1237,17 @@ let inspect_mind (env, sigma) t =
     (* let sigma, constrs = Evarsolve.refresh_universes None env sigma constrs in *)
 
     let sigma, inddef_ty = CoqIndDef.mkTy sigma env [|params|] in
-    let sigma, nil = CoqList.mkNil sigma env inddef_ty in
-    let sigma, inds = List.fold_right (fun (_, _, _, ind_def, _) (sigma, inds) ->
-      let sigma, inds = CoqList.mkCons sigma env inddef_ty ind_def inds in
-      (* let sigma, inds = Evarsolve.refresh_universes None env sigma inds in *)
-      (* let sigma, ty = CoqList.mkType sigma env inddef_ty in *)
-      (* let sigma, ty = Evarsolve.refresh_universes None env sigma ty in *)
-      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds);
-       * Feedback.msg_debug (Printer.pr_econstr_env env sigma ty); *)
-      (* let sigma = Typing.check env sigma inds ty in *)
-      sigma, inds
-    ) descs (sigma, nil) in
+    let sigma, inds = CoqNEList.to_coq sigma env inddef_ty (fun sigma (_,_,_,ind_def,_) -> sigma, ind_def) descs in
+    (* let sigma, inds = List.fold_right (fun (_, _, _, ind_def, _) (sigma, inds) ->
+     *   let sigma, inds = CoqNEList.mkCons sigma env inddef_ty ind_def inds in
+     *   (\* let sigma, inds = Evarsolve.refresh_universes None env sigma inds in *\)
+     *   (\* let sigma, ty = CoqList.mkType sigma env inddef_ty in *\)
+     *   (\* let sigma, ty = Evarsolve.refresh_universes None env sigma ty in *\)
+     *   (\* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds);
+     *    * Feedback.msg_debug (Printer.pr_econstr_env env sigma ty); *\)
+     *   (\* let sigma = Typing.check env sigma inds ty in *\)
+     *   sigma, inds
+     * ) descs (sigma, nil) in *)
 
     (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
 
@@ -1263,18 +1265,11 @@ let inspect_mind (env, sigma) t =
 
     (* Feedback.msg_debug (Pp.str "HERE"); *)
 
-    let sigma, _, inds, _, constrs = List.fold_right_i (
-      fun ind_i (ty, _, _, ind_def, _) (sigma, inds_ty, inds, constrs_ty, constrs) ->
-        let ind_i = mbody.mind_ntypes - ind_i - 1 in
+    let sigma, (_, inds, _, constrs) = Utils.NEList.fold_right_i (
+      fun ind_i (ty, _, _, ind_def, _) (sigma, acc) ->
+        let ind_i = ind_i in
         let ind = EConstr.mkIndU ((mind, ind_i), instance) in
         let ty = EConstr.of_constr ty in
-
-        (* Feedback.msg_debug (Printer.pr_econstr_env env sigma ind_def);
-         * Feedback.msg_debug (Pp.int ind_i);
-         * Feedback.msg_debug (Printer.pr_econstr_env env sigma ind); *)
-
-        let sigma, inds = CoqPair.mkPair sigma env ty inds_ty ind inds in
-        let sigma, inds_ty = CoqPair.mkType sigma env ty inds_ty in
 
         let sigma, cs_ty, cs =
           Array.fold_right_i
@@ -1289,11 +1284,20 @@ let inspect_mind (env, sigma) t =
             (sigma, CoqUnit.mkType, CoqUnit.mkTT)
         in
 
-        let sigma, constrs = CoqPair.mkPair sigma env cs_ty constrs_ty cs constrs in
-        let sigma, constrs_ty = CoqPair.mkType sigma env cs_ty constrs_ty in
+        match acc with
+        | None ->
+            let inds_ty = ty in
+            let constrs = cs in
+            let constrs_ty = cs_ty in
+            sigma, (inds_ty, ind, constrs_ty, constrs)
+        | Some (inds_ty, inds, constrs_ty, constrs) ->
+            let sigma, inds = CoqPair.mkPair sigma env ty inds_ty ind inds in
+            let sigma, inds_ty = CoqPair.mkType sigma env ty inds_ty in
 
-        sigma, inds_ty, inds, constrs_ty, constrs
-    ) 0 descs (sigma, CoqUnit.mkType, CoqUnit.mkTT, CoqUnit.mkType, CoqUnit.mkTT) in
+            let sigma, constrs = CoqPair.mkPair sigma env cs_ty constrs_ty cs constrs in
+            let sigma, constrs_ty = CoqPair.mkType sigma env cs_ty constrs_ty in
+            sigma, (inds_ty, inds, constrs_ty, constrs)
+    ) 0 descs sigma in
 
     (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
 
@@ -1331,7 +1335,7 @@ let declare_mind env sigma poly params sigs mut_constrs =
   let params = List.rev params in
 
   (* let mind_entry_params = List.rev mind_entry_params in *)
-  let sigma, inds = CoqList.from_coq_conv sigma env (
+  let sigma, inds = CoqNEList.from_coq_conv sigma env (
     fun sigma t ->
       let Cons (_, Cons (name, Cons (ind_sig, Nil))) = CoqIndDef.from_coq_vec sigma env t in
       (* print_constr sigma env t; *)
@@ -1378,29 +1382,34 @@ let declare_mind env sigma poly params sigs mut_constrs =
   (* let param_args = fold_nat (fun k acc -> mkRel (n_params + n_inds - k + 1) :: acc) [] n_params in *)
   let param_args = List.mapi (fun i (name, typeX) -> mkRel (n_params - i)) params in
   (* Convert [constrs], now an [n_inds]-tuple of lists, into a list *)
-  let sigma, _, constrs, unit_leftover = List.fold_left (fun (sigma, k_ind, acc, mut_constrs)(_, n_ind_args, _,_,_)  ->
-    (* print_constr sigma env mut_constrs; *)
-    (* Feedback.msg_debug (Pp.int n_ind_args); *)
-    let constrs, mut_constrs = CoqPair.from_coq (env, sigma) mut_constrs in
-    let sigma, constrs = CoqList.from_coq_conv sigma env (fun sigma constr ->
-      (* print_constr sigma env constr; *)
-      let Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil)))) =
-        CoqConstrDef.from_coq_vec sigma env constr in
-      let sigma, n_constr_args, constr_type = CoqMTele.to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
-        let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
-          (* print_constr sigma env t; *)
-          let (arg, t) = CoqSigT.from_coq sigma env t in
-          (t, arg::acc)
-        ) (t, []) (n_ind_args) in
-        sigma, EConstr.applist (EConstr.mkRel (n_params + n_inds - k_ind + n_constr_args), List.map (EConstr.Vars.lift n_constr_args) param_args @ rev rev_args)
-      )
+  let (sigma, (constrs, _leftover_constr)) = Utils.NEList.fold_left_i (
+    fun k_ind ((sigma, (acc, mut_constrs))) (_, n_ind_args, _,_,_)  ->
+      (* print_constr sigma env mut_constrs; *)
+      (* Feedback.msg_debug (Pp.int n_ind_args); *)
+      let constrs, mut_constrs = if k_ind < (List.length inds) - 1 then
+          CoqPair.from_coq (env, sigma) mut_constrs
+        else
+          mut_constrs, mut_constrs
       in
-      let name = CoqString.from_coq (env, sigma) name in
-      let name = Id.of_string name in
-      (sigma, (name, constr_type))
-    ) constrs in
-    (sigma, k_ind+1, constrs::acc, mut_constrs)
-  ) (sigma, 0, [], mut_constrs) inds in
+      let sigma, constrs = CoqList.from_coq_conv sigma env (fun sigma constr ->
+        (* print_constr sigma env constr; *)
+        let Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil)))) =
+          CoqConstrDef.from_coq_vec sigma env constr in
+        let sigma, n_constr_args, constr_type = CoqMTele.to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
+          let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
+            (* print_constr sigma env t; *)
+            let (arg, t) = CoqSigT.from_coq sigma env t in
+            (t, arg::acc)
+          ) (t, []) (n_ind_args) in
+          sigma, EConstr.applist (EConstr.mkRel (n_params + n_inds - k_ind + n_constr_args), List.map (EConstr.Vars.lift n_constr_args) param_args @ rev rev_args)
+        )
+        in
+        let name = CoqString.from_coq (env, sigma) name in
+        let name = Id.of_string name in
+        (sigma, (name, constr_type))
+      ) constrs in
+      (sigma, (constrs::acc, mut_constrs))
+  ) 0 (sigma, ([], mut_constrs)) inds in
 
   (* constrs now reversed because of a left fold. *)
   let constrs = List.rev constrs in
