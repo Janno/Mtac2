@@ -21,10 +21,12 @@ src/metaCoqInterp.ml
 src/metaCoqInterp.mli
 src/metaCoqTactic.mlg
 src/MetaCoqPlugin.mlpack
+src/utils.ml
 theories/lib/Logic.v
 theories/lib/Specif.v
 theories/lib/Datatypes.v
 theories/lib/List.v
+theories/lib/NEList.v
 theories/lib/Utils.v
 theories/intf/Sorts.v
 theories/Base.v

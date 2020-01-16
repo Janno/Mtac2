@@ -1,5 +1,5 @@
 From Coq Require Import BinNums String.
-From Mtac2 Require Import Datatypes List.
+From Mtac2 Require Import Datatypes List NEList.
 Import ProdNotations.
 From Mtac2.intf Require Import Dyn MTele Sorts.
 From Mtac2.lib Require Import Datatypes Specif.
@@ -43,8 +43,8 @@ Definition ind_arg@{p+} {params : MTele@{p}} (i : ind_def params) : Type :=
                  (fun a' : ArgsOf@{p} params => MTele_Sort sort (apply_constT arity a'))
               ).
 
-Definition inds_args {params} (sigs : mlist (ind_def params)) (to : Type) : Type :=
-  mfold_right (fun sig accu => ind_arg sig -> accu) to sigs.
+Definition inds_args {params} (sigs : nelist (ind_def params)) (to : Type) : Type :=
+  fold_right (fun sig accu => ind_arg sig -> accu) to sigs.
 
 Record constr_def {ind_mt : MTele} : Type :=
   {
@@ -71,12 +71,14 @@ Definition constr_def_value {ind_mt} (sort_ind : S.Sort)
 Definition constrs_def (ind_mt : MTele) : Type :=
   mlist (constr_def ind_mt).
 
-Definition constrs_defs {params} (sigs : mlist (ind_def params)) (a : ArgsOf params) :=
-  mfold_right (fun '{| ind_def_sig := {| ind_sig_arity:=ind |} |} acc =>
-                 constrs_def (apply_constT ind a) *m acc
-              ) unit sigs.
+Definition constrs_defs {params} (sigs : nelist (ind_def params)) (a : ArgsOf params) :=
+  let cs := map (fun i =>
+                   let ind := ind_sig_arity (ind_def_sig (i)) in
+                   constrs_def (apply_constT ind a)
+                ) sigs
+  in reduce mprod cs.
 
-Definition constrs_defs_in_ctx {params} (sigs : mlist (ind_def params)) :=
+Definition constrs_defs_in_ctx {params} (sigs : nelist (ind_def params)) :=
   inds_args sigs (MTele_val (curry_sort Typeₛ (constrs_defs sigs))).
 
 
@@ -117,33 +119,30 @@ Definition constr_def_value_wop
 Definition constrs_def_wop {params} (ind : MTele_ConstT MTele params) :=
   mlist (constr_def_wop ind).
 
-Definition constrs_defs_wop {params} : forall (sigs : mlist (ind_def params)), Type :=
-  mfold_right (fun sig acc =>
-                 constrs_def_wop (ind_sig_arity (ind_def_sig sig)) *m acc
-              ) unit.
+Definition constrs_defs_wop {params} (sigs : nelist (ind_def params)) : Type :=
+  let cs_defs := map (fun sig => constrs_def_wop (ind_sig_arity (ind_def_sig sig))) sigs
+  in reduce mprod cs_defs.
 
-Definition constrs_defs_in_ctx_wop {params} (sigs : mlist (ind_def params)) :=
+Definition constrs_defs_in_ctx_wop {params} (sigs : nelist (ind_def params)) :=
   inds_args sigs (constrs_defs_wop sigs).
 
 Record Mind_Spec :=
   {
     mind_spec_polymorphic: bool;
     mind_spec_params : MTele;
-    mind_spec_ind_sigs : mlist (ind_def mind_spec_params);
+    mind_spec_ind_sigs : nelist (ind_def mind_spec_params);
     mind_spec_constr_sigs : constrs_defs_in_ctx_wop mind_spec_ind_sigs;
   }.
 
-Definition inds {params} : forall (sigs : mlist (ind_def params)), Type :=
-  mfold_right (fun ind_def acc =>
-                 ind_arg ind_def *m acc
-              ) unit.
+Definition inds {params} (sigs : nelist (ind_def params)) :Type :=
+  reduce mprod (map ind_arg sigs).
 
 (* The function below introduces too strict universe constraints. *)
 Definition constrs_type {params} {sig : ind_def params} (ia : ind_arg sig) :
   forall (cs : mlist (constr_def_wop (ind_sig_arity (ind_def_sig sig)))), Type :=
   mfold_right (fun c acc => constr_def_value_wop ia c *m acc) unit.
 
-Fixpoint constrs_types {params} {sigs : mlist (ind_def params)} :
+Fixpoint constrs_types {params} {sigs : nelist (ind_def params)} :
   forall
     (ias : inds sigs)
     (css : constrs_defs_wop sigs), Type
@@ -153,19 +152,21 @@ Fixpoint constrs_types {params} {sigs : mlist (ind_def params)} :
             (ias : inds sigs)
             (css : constrs_defs_wop sigs), Type
   with
-  | mnil => fun 'tt 'tt => unit
-  | sig :m: sigs => fun '(m: ia, ias) '(m: cs, css) => constrs_type ia cs *m constrs_types ias css
+  | ne_sing sig =>
+    fun ia cs => constrs_type ia cs
+  | ne_cons sig sigs =>
+    fun '(m: ia, ias) '(m: cs, css) => constrs_type ia cs *m constrs_types ias css
   end.
 
 
 Definition constrs
            {params}
-           {sigs : mlist (ind_def params)}
+           {sigs : nelist (ind_def params)}
            (css : inds_args sigs (constrs_defs_wop sigs))
            (is : inds sigs) :
   Type :=
-  (fun (sigs' : mlist (ind_def params)) (is' : inds sigs') =>
-     fix go {sigs : mlist (ind_def params)} :
+  (fun (sigs' : nelist (ind_def params)) (is' : inds sigs') =>
+     fix go {sigs : nelist (ind_def params)} :
         forall
           (css : inds_args sigs (constrs_defs_wop sigs'))
           (is : inds sigs),
@@ -176,10 +177,11 @@ Definition constrs
              (is : inds sigs),
              Type
      with
-     | mnil =>
-       fun (css : constrs_defs_wop sigs') 'tt =>
+     | ne_sing sig =>
+       fun (css : ind_arg sig -> constrs_defs_wop sigs') (is : ind_arg sig) =>
+         let css := css is in
          constrs_types is' css
-     | sig :m: sigs =>
+     | ne_cons sig sigs =>
        fun css '(m: ia, is) =>
          let css := css ia in
          go css is

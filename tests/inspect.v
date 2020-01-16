@@ -1,4 +1,4 @@
-From Mtac2 Require Import Mtac2 Sorts MTele Specif Logic.
+From Mtac2 Require Import Mtac2 Sorts MTele Specif Logic NEList.
 Import TeleNotation.
 
 Mtac Do (M.inspect_mind nat).

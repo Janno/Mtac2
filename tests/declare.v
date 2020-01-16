@@ -1,4 +1,4 @@
-From Mtac2 Require Import Mtac2 Sorts MTele Specif.
+From Mtac2 Require Import Mtac2 Sorts MTele Specif NEList.
 Import M.notations.
 Definition test := c <- M.declare dok_Definition "bla" false 1; M.print_term c.
 Goal unit.
@@ -125,16 +125,14 @@ Module M1.
                          ind_sig_arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
-  Program Definition mind_test := (M.declare_mind false P ([m: I2])).
+  Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
   Definition testprog :=
     mind_test
       (fun (I2 : forall T k, k = k -> _) T k =>
-         (m:
-          mnil;
-          tt)
+          mnil
       ).
 
   Eval cbv in testprog.
@@ -153,21 +151,19 @@ Module M2.
                          ind_sig_arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
-  Program Definition mind_test := (M.declare_mind false P ([m: I2])).
+  Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
   Program Definition testprog :=
     mind_test
       (fun I2 T k =>
-         (m:
           [m:
              {| constr_def_name := "c1";
                 constr_def_tele := [tele _ : T];
                 constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))));
              |}
-          ];
-          tt)
+          ]
       ).
 
   Eval cbv in testprog.
@@ -194,7 +190,7 @@ Module M3.
                         ind_sig_arity := fun T k => [tele]
                      |}
     |}.
-Program Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
+Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
 Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
 (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -213,8 +209,8 @@ Program Definition testprog :=
                 constr_def_tele := mTele (fun t : I2 T k => mBase);
                 constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
              |}
-          ];
-        tt)
+          ]
+        )
     ).
 
 Eval cbn in ltac:(mrun(
@@ -239,7 +235,7 @@ Module M4.
                      |}
     |}.
 
-  Program Definition mind_test := (M.declare_mind false P ([m: I1 |  I2])).
+  Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -253,8 +249,7 @@ Module M4.
                   constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
                |}
             ];
-          mnil;
-          tt)
+          mnil)
       ).
   Eval cbv in testprog.
 
