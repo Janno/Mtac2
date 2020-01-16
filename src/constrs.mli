@@ -88,6 +88,26 @@ module GenericList : functor (LP : ListParams) -> LIST
 
 module CoqList : LIST
 
+module type NELIST = sig
+  val mkNil : Evd.evar_map -> Environ.env -> types -> constr -> Evd.evar_map * constr
+  val mkCons : Evd.evar_map -> Environ.env -> types -> constr -> constr -> Evd.evar_map * constr
+  val mkType : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * types
+
+  exception NotANEList of constr
+
+  val from_coq : Evd.evar_map -> Environ.env -> constr -> constr list
+
+  (** Allows skipping an element in the conversion *)
+  exception Skip
+  val from_coq_conv : Evd.evar_map -> Environ.env -> (Evd.evar_map -> constr -> Evd.evar_map * 'a) -> constr -> Evd.evar_map * 'a list
+
+  val to_coq : Evd.evar_map -> Environ.env -> types -> (Evd.evar_map -> 'a -> Evd.evar_map * constr) -> 'a list -> Evd.evar_map * constr
+end
+
+module GenericNonEmptyList : functor (LP : ListParams) -> NELIST
+
+module CoqNEList : NELIST
+
 module CoqOption : sig
   val mkNone : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * constr
   val mkSome : Evd.evar_map -> Environ.env -> types -> constr -> Evd.evar_map * constr

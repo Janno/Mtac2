@@ -1,6 +1,6 @@
 Require Import Strings.String.
 Require Import NArith.BinNat.
-From Mtac2 Require Import Logic Datatypes Logic List Utils MTele Pattern Specif.
+From Mtac2 Require Import Logic Datatypes Logic List Utils MTele Pattern Specif NEList.
 Import ListNotations.
 Import ProdNotations.
 From Mtac2.intf Require Export Sorts Exceptions Dyn Reduction Unification DeclarationDefs Goals Case Tm_kind Name.
@@ -331,7 +331,7 @@ Definition replace {A B C} (x:A) : A =m= B -> t C -> t C.
 Definition declare_mind
            (polymorphic: bool)
            (params : MTele)
-           (sigs : mlist (ind_def params))
+           (sigs : nelist (ind_def params))
            (constrs : constrs_defs_in_ctx sigs) :
   t unit.
   make. Qed.
