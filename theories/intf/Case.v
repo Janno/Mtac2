@@ -137,8 +137,7 @@ Record Mind_Spec :=
 Definition inds {params} (sigs : nelist (ind_def params)) :Type :=
   reduce mprod (map ind_arg sigs).
 
-(* The function below introduces too strict universe constraints. *)
-Definition constrs_type {params} {sig : ind_def params} (ia : ind_arg sig) :
+Definition constrs_wop {params} {sig : ind_def params} (ia : ind_arg sig) :
   forall (cs : mlist (constr_def_wop (ind_sig_arity (ind_def_sig sig)))), Type :=
   mfold_right (fun c acc => constr_def_value_wop ia c *m acc) unit.
 
@@ -153,11 +152,48 @@ Fixpoint constrs_types {params} {sigs : nelist (ind_def params)} :
             (css : constrs_defs_wop sigs), Type
   with
   | ne_sing sig =>
-    fun ia cs => constrs_type ia cs
+    fun ia cs => constrs_wop ia cs
   | ne_cons sig sigs =>
-    fun '(m: ia, ias) '(m: cs, css) => constrs_type ia cs *m constrs_types ias css
+    fun '(m: ia, ias) '(m: cs, css) => constrs_wop ia cs *m constrs_types ias css
   end.
 
+Fixpoint constrs_types_nth
+         {params} {sigs : nelist (ind_def params)} (n : nat) :
+  forall
+    (ias : inds sigs)
+    (css : constrs_defs_wop sigs),
+    constrs_types ias css -> constrs_wop (netuple_nth n ias) (netuple_nth n css) :=
+  match sigs as sigs, n as n return
+        forall
+          (ias : inds sigs)
+          (css : constrs_defs_wop sigs),
+          constrs_types ias css -> constrs_wop (netuple_nth n ias) (netuple_nth n css)
+  with
+  | ne_sing sig, 0 => fun _ _ t => t
+  | ne_sing sig, _ => fun _ _ t => t
+  | ne_cons _ _, 0 => fun '(m: _, _) '(m: _, _) '(m: t, _) => t
+  | ne_cons _ sigs, S n => fun '(m: _, _) '(m: _, _) '(m: _, cts) => constrs_types_nth n _ _ cts
+  end
+.
+
+Fixpoint ind_args_get
+         {T}
+         {params}
+         {sigs : nelist (ind_def params)} :
+  forall
+    (css : inds_args sigs T)
+    (is : inds sigs),
+    T :=
+  match sigs as sigs' return
+        forall
+          (css : inds_args sigs' T)
+          (is : inds sigs'),
+          T
+  with
+  | ne_sing sig => fun css is => css is
+  | ne_cons sig sigs => fun css '(m: ia, is) =>
+    ind_args_get (css ia) is
+  end.
 
 Definition constrs
            {params}
@@ -165,29 +201,7 @@ Definition constrs
            (css : inds_args sigs (constrs_defs_wop sigs))
            (is : inds sigs) :
   Type :=
-  (fun (sigs' : nelist (ind_def params)) (is' : inds sigs') =>
-     fix go {sigs : nelist (ind_def params)} :
-        forall
-          (css : inds_args sigs (constrs_defs_wop sigs'))
-          (is : inds sigs),
-          Type :=
-     match sigs as sigs return
-           forall
-             (css : inds_args sigs (constrs_defs_wop sigs'))
-             (is : inds sigs),
-             Type
-     with
-     | ne_sing sig =>
-       fun (css : ind_arg sig -> constrs_defs_wop sigs') (is : ind_arg sig) =>
-         let css := css is in
-         constrs_types is' css
-     | ne_cons sig sigs =>
-       fun css '(m: ia, is) =>
-         let css := css ia in
-         go css is
-     end)
-    sigs is sigs css is
-.
+  constrs_types is (ind_args_get css is).
 
 Record Mind :=
   {
@@ -242,14 +256,40 @@ Fixpoint zip_dep_fold {A} {F : A -> Type} {l}
   | mcons a l => fun '(m: fa, t) => g _ fa *m zip_dep_fold g t
   end.
 
-Definition match_branches_type
+
+Definition return_type_for
+    {match_sort: S.Sort}
+    {match_param_tele: MTele}
+    {match_ind_def: ind_def match_param_tele}
+    {match_ind : ind_arg match_ind_def}
+    {match_param_args: ArgsOf match_param_tele}
+    (match_return_predicate: return_predicate_type match_param_args match_ind match_sort)
+    {match_indices: indices_of match_ind_def match_param_args}
+    (match_val: val_of_ind match_ind match_indices) :
+  S.stype_of match_sort :=
+  let p := apply_val (s:=Typeₛ) match_return_predicate match_indices in
+  let p := apply_curry_sort p in
+  p match_val.
+
+(* Definition constrs_wop *)
+(*     (** the shape of the inductive's parameters  *) *)
+(*     {match_param_tele: MTele} *)
+(*     (** the shape of the inductive type's indices *) *)
+(*     {match_ind_def: ind_def match_param_tele} *)
+(*     (** the actual inductive type (quantifying over its parameters) *) *)
+(*     {match_ind : ind_arg match_ind_def} *)
+(*     (** the shape of the inductive's constructors *) *)
+(*     (match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def))) := *)
+(*   (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig. *)
+
+Definition branches_type
     {match_sort: S.Sort}
     {match_param_tele: MTele}
     {match_ind_def: ind_def match_param_tele}
     {match_ind : ind_arg match_ind_def}
     {match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def))}
     {match_param_args: ArgsOf match_param_tele}
-    (match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig)
+    (match_constrs: constrs_wop _ match_constrs_sig)
     (match_return_predicate: return_predicate_type match_param_args match_ind match_sort)
   :=
       zip_dep_fold
@@ -272,29 +312,83 @@ Definition match_branches_type
                     (* [c_args ≈ x .. y] *)
                     let c := apply_val (s:=ind_sig_sort _) c c_args in
                     let c : apply_sort _ _ := apply_curry_sort c in
-                    let Rjk := apply_val (s:=Typeₛ) match_return_predicate _ in
-                    let Rjk := apply_curry_sort Rjk in
-                    Rjk c
+                    return_type_for match_return_predicate c
                  )
              )
         )
         match_constrs.
 
-Record Match :=
-  {
-    match_sort: S.Sort;
-    match_param_tele: MTele;
-    match_ind_def: ind_def match_param_tele;
-    match_ind : ind_arg match_ind_def;
-    match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def));
-    match_constrs: (mfold_right (fun c acc => constr_def_value_wop match_ind c *m acc) unit) match_constrs_sig;
-    match_param_args: ArgsOf match_param_tele;
-    (** The return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
-    match_return_predicate: return_predicate_type match_param_args match_ind match_sort;
-    match_indices: indices_of match_ind_def match_param_args;
-    match_val: val_of_ind match_ind match_indices;
-    match_branches: match_branches_type match_constrs match_return_predicate;
-  }.
+
+(* Record Match_Full := *)
+(*   { *)
+(*     (** the shape of the inductive's parameters  *) *)
+(*     match_param_tele: MTele; *)
+(*     (** the shape of the inductive type's indices *) *)
+(*     match_ind_def: ind_def match_param_tele; *)
+(*     (** the actual inductive type (quantifying over its parameters) *) *)
+(*     match_ind : ind_arg match_ind_def; *)
+(*     (** the shape of the inductive's constructors *) *)
+(*     match_constrs_sig: constrs_def_wop (ind_sig_arity (ind_def_sig match_ind_def)); *)
+(*     (** the inductive constructors. *)
+(*         the constructors are specified with explicit quantifiers for parameters. *)
+(*      *) *)
+(*     match_constrs: constrs_wop match_constrs_sig; *)
+
+(*     (** the parameters of the discriminant *) *)
+(*     match_param_args: ArgsOf match_param_tele; *)
+(*     (** the indices of the inductive value being matched on *) *)
+(*     match_indices: indices_of match_ind_def match_param_args; *)
+(*     (** the value being matched on  *) *)
+(*     match_val: val_of_ind match_ind match_indices; *)
+
+(*     (** the sort of the match, i.e. the Sort of the return type. *) *)
+(*     match_sort: S.Sort; *)
+(*     (** the return predicate [R : ∀ j .. k, I j .. k -> Type]  *) *)
+(*     match_return_predicate: return_predicate_type match_param_args match_ind match_sort; *)
+(*     (** the   *) *)
+(*     match_branches: branches_type match_constrs match_return_predicate; *)
+(*   }. *)
+
+(* Definition number_of_inds (m : Mind) := *)
+(*   mlength (mind_spec_ind_sigs (mind_spec m)). *)
+(* Definition index_of_mind m := *)
+(*   msigT (fun n => BinNat.N.to_nat n < number_of_inds m). *)
+
+Definition ind_def_of (m : Mind_Entry) : ind_def (mind_spec_params (mind_spec (mind_entry_mind m))) :=
+  nth (BinNat.N.to_nat (mind_entry_index m)) (mind_spec_ind_sigs (mind_spec (mind_entry_mind m)))
+.
+
+Definition ind_arg_of m :=
+  netuple_nth (BinNat.N.to_nat (mind_entry_index m)) ((mind_inds (mind_entry_mind m))).
+
+Definition constrs_sigs_of m :
+  constrs_def_wop (ind_sig_arity (ind_def_sig (ind_def_of m))) :=
+  let constrs := ind_args_get (mind_spec_constr_sigs _) (mind_inds _) in
+  netuple_nth (BinNat.N.to_nat (mind_entry_index m)) (constrs).
+
+Definition constrs_of m :
+  constrs_wop (ind_arg_of m) (constrs_sigs_of m) :=
+  constrs_types_nth _ _ _ (mind_constrs _)
+.
+
+Record Match
+  :=
+    {
+      match_mind_entry: Mind_Entry;
+      (** the parameters of the discriminant *)
+      match_param_args: ArgsOf (mind_spec_params (mind_spec (mind_entry_mind match_mind_entry)));
+      (** the indices of the inductive value being matched on *)
+      match_indices: indices_of (ind_def_of match_mind_entry) match_param_args;
+      (** the value being matched on  *)
+      match_val: val_of_ind (ind_arg_of match_mind_entry) match_indices;
+
+      (** the sort of the match, i.e. the Sort of the return type. *)
+      match_sort: S.Sort;
+      (** the return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
+      match_return_predicate: return_predicate_type match_param_args (ind_arg_of match_mind_entry ) match_sort;
+      (** the branches *)
+      match_branches: branches_type (constrs_of match_mind_entry) match_return_predicate;
+    }.
 
 
 Record Case :=
