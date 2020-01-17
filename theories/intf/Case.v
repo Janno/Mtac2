@@ -371,7 +371,8 @@ Definition constrs_of m :
   constrs_types_nth _ _ _ (mind_constrs _)
 .
 
-Record Match
+
+NonCumulative Record Match
   :=
     {
       match_mind_entry: Mind_Entry;
