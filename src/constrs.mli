@@ -206,7 +206,7 @@ module CoqArgsOf : sig
     Evd.evar_map ->
     Environ.env ->
     Evd.econstr ->
-    Evd.econstr list -> Evd.evar_map * Evd.econstr
+    Evd.econstr list -> Evd.evar_map * Evd.econstr * Evd.econstr list
 end
 
 module CoqSort : sig
@@ -256,7 +256,8 @@ module type CoqRecordVec2 = sig include CoqRecordVec with type N.t = o s s end
 module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
 module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
 module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
-(* module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end *)
+module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end
+module type CoqRecordVec7 = sig include CoqRecordVec with type N.t = o s s s s s s s end
 
 module CoqIndSig : CoqRecordVec3
 module CoqIndDef : CoqRecordVec3
@@ -265,3 +266,4 @@ module CoqConstrDefWop : CoqRecordVec5
 module CoqMindSpec : CoqRecordVec4
 module CoqMind : CoqRecordVec3
 module CoqMindEntry : CoqRecordVec4
+module CoqMatch : CoqRecordVec7

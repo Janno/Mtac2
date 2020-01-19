@@ -1162,7 +1162,8 @@ let inspect_mind (env, sigma) t =
 
             (* need to lift arity_tele_wo_params by constr_ctx many binders for ArgsOf *)
             let lifted_arity_tele_wo_params = EConstr.Vars.lift (List.length constr_ctx) arity_tele_wo_params in
-            let sigma, argsof = CoqArgsOf.of_arguments sigma env lifted_arity_tele_wo_params args in
+            let sigma, argsof, args = CoqArgsOf.of_arguments sigma env lifted_arity_tele_wo_params args in
+            assert (args == []);
             (* Feedback.msg_debug (Printer.pr_econstr_env env sigma argsof); *)
             let name = CoqString.to_coq (Id.to_string (Array.get ind.mind_consnames i)) in
             let argsof_fun = Term.it_mkLambda_or_LetIn (EConstr.Unsafe.to_constr argsof) constr_ctx in
@@ -1493,6 +1494,64 @@ let declare_mind env sigma poly params sigs mut_constrs =
    *            mind_entry_private=None;
    *           } ubinders [] in *)
   (sigma, CoqUnit.mkTT)
+
+
+let inspect_match (env, sigma) t v =
+  if not (isCase sigma v) then None
+  else
+    let (case_info, ret, v, branches) = destCase sigma v in
+    let ind = Retyping.get_type_of env sigma v in
+    let (sigma, mind_entry) = match inspect_mind (env, sigma) ind with
+      | Some (sigma, ind) -> sigma, ind
+      | None -> failwith "inspect_match: impossible"
+    in
+    let t_type, t_args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr ind))) in
+
+    let (mind, ind_i), instance = destInd sigma t_type in
+    let mbody = Environ.lookup_mind mind env in
+
+    (* let ind = Array.get mbody.mind_packets ind_i in *)
+
+    let univs = EConstr.EInstance.kind sigma instance in
+    (* let pind = (mbody, univs) in *)
+
+
+    let arity_ctx = Inductiveops.inductive_alldecls env ((mind, ind_i), univs) in
+
+    let arity_ctx, param_ctx = List.chop (List.length arity_ctx - mbody.mind_nparams) arity_ctx in
+
+    (* let param_ctx = Inductive.inductive_paramdecls pind in *)
+    let sigma, params = CoqMTele.of_rel_context sigma env param_ctx in
+
+    let sigma, params, t_args = CoqArgsOf.of_arguments sigma env params t_args in
+
+    (* let arity_ctx, _ = List.chop (mbody.mind_nparams) arity_ctx  in *)
+
+    (* Feedback.msg_info (Printer.pr_rel_context env sigma arity_ctx); *)
+
+    let sigma, indices = CoqMTele.of_rel_context sigma env arity_ctx in
+
+    let sigma, indices, t_args = CoqArgsOf.of_arguments sigma env indices t_args in
+    assert (t_args == []);
+
+    let ret_type = Retyping.get_type_of env sigma ret in
+    let sort = Retyping.get_sort_of env sigma ret_type in
+    let sigma, sort = match sort with
+      | Sorts.Type(_) -> CoqSort.mkSType env sigma
+      | Sorts.Prop -> CoqSort.mkSProp env sigma
+      | _ -> failwith "Unsupported Sort"
+    in
+
+    let sigma, (branches_type, branches) = Array.fold_right (fun b (sigma, (branches_type, branches)) ->
+      let ty = Retyping.get_type_of env sigma b in
+      let sigma, t = CoqPair.mkPair sigma env ty branches_type b branches in
+      let sigma, ty = CoqPair.mkType sigma env ty branches_type in
+      sigma, (ty, t)
+    ) branches (sigma, (CoqUnit.mkType, CoqUnit.mkTT)) in
+
+    let sigma, mat = CoqMatch.to_coq sigma env [|mind_entry; params; indices; v; sort; ret; branches|] in
+
+    Some (sigma, mat)
 
 
 let koft sigma t =
@@ -2395,7 +2454,14 @@ and primitive ctxt vms mh reduced_term =
       let sigma, types = declare_mind env sigma (to_econstr poly) (to_econstr params) (to_econstr inds) (to_econstr constrs) in
       ereturn sigma types
   | MConstr (Minspect_mind, (_, ind)) ->
-      match inspect_mind (env, sigma) (to_econstr ind) with
+      begin
+        match inspect_mind (env, sigma) (to_econstr ind) with
+        | Some (sigma, desc) ->
+            ereturn sigma desc
+        | None -> failwith "Not an inductive" (* TODO: proper exception *)
+      end
+  | MConstr (Minspect_match, (t, v)) ->
+      match inspect_match (env, sigma) (to_econstr t) (to_econstr v) with
       | Some (sigma, desc) ->
           ereturn sigma desc
       | None -> failwith "Not an inductive" (* TODO: proper exception *)

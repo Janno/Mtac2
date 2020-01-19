@@ -83,6 +83,7 @@ type 'a mconstr_head =
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
   | Mdeclare_mind : (arg_any * arg_any * arg_any * arg_any) mconstr_head
   | Minspect_mind : (arg_type * arg_type) mconstr_head
+  | Minspect_match : (arg_type * arg_any) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
