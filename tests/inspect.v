@@ -1,4 +1,5 @@
 From Mtac2 Require Import Mtac2 Sorts MTele Specif Logic NEList.
+From Coq Require Vector.
 Import TeleNotation.
 
 Mtac Do (M.inspect_mind nat).
@@ -110,3 +111,55 @@ Definition meq_mind := ltac:(mrun (M.inspect_mind (@meq))).
 Polymorphic Inductive many_indices (A : Type) : forall x y : A, x =m= y -> Type :=.
 
 Mtac Do (M.inspect_mind (@many_indices)).
+
+
+Module Matches.
+  Notation "'t1'" := (match 1 with | 0 => false | _ => true end).
+  Notation t1_tgt :=
+    (
+      Build_Match
+        (Build_Mind_Entry
+           (Build_Mind
+              (Build_Mind_Spec
+                 false
+                 [tele ]
+                 [ne:Build_ind_def
+                       [tele ]
+                       "nat"
+                       (Build_ind_sig [tele ] Typeₛ [tele ])
+                 ]
+                 (fun _ : Set =>
+                    [m: Build_constr_def_wop [tele ] [tele ] "O" [tele ] tt
+                    | Build_constr_def_wop [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => tt)])) nat
+              (m:0; S; tt))
+           0
+           0
+           0
+        )
+        tt
+        tt
+        1
+        Typeₛ
+        (fun _ : nat => bool)
+        (m:false; fun _ : nat => true; tt)
+    ).
+
+  Mtac Do (M.inspect_match t1).
+  Definition t1_repr := ltac:(mrun (M.inspect_match t1)).
+  Definition t1_correct : (t1_repr =m= t1_tgt) := meq_refl.
+
+  Import Vector.
+
+  Parameter n : nat.
+  Parameter T : Type.
+  Parameter v : Vector.t T (S n).
+  Notation "'t2'" := (
+                  match v in Vector.t _ k return match k with 0 => unit | S _ => T end with
+                  | Vector.nil _ => tt
+                  | Vector.cons _ x _ _ => x
+                  end
+                 ).
+
+  Mtac Do (M.inspect_match t2).
+
+End Matches.

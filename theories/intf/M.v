@@ -342,6 +342,9 @@ Definition existing_instance (name : string) (priority : moption N) (global : bo
 Definition inspect_mind {T: Type} (ind : T) : t Mind_Entry.
   make. Qed.
 
+Definition inspect_match {T: Type} (m : T) : t Match.
+  make. Qed.
+
 Arguments t _%type.
 
 Definition fmap {A:Type} {B:Type} (f : A -> B) (x : t A) : t B :=
