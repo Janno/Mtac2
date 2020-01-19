@@ -579,10 +579,9 @@ module CoqArgsOf = struct
         let predicate = mkLambda (name, ty, argsof_ty) in
         let sigma, argsof = CoqSigT.to_coq sigma env [|ty; predicate; head; acc|] in
         sigma, args, argsof
-    ) (sigma, List.rev args, CoqUnit.mkTT) tele
+    ) (sigma, args, CoqUnit.mkTT) tele
     in
-    assert (args == []);
-    sigma, argsof
+    sigma, argsof, args
 end
 
 
@@ -682,6 +681,7 @@ module type CoqRecordVec3 = sig include CoqRecordVec with type N.t = o s s s end
 module type CoqRecordVec4 = sig include CoqRecordVec with type N.t = o s s s s end
 module type CoqRecordVec5 = sig include CoqRecordVec with type N.t = o s s s s s end
 module type CoqRecordVec6 = sig include CoqRecordVec with type N.t = o s s s s s s end
+module type CoqRecordVec7 = sig include CoqRecordVec with type N.t = o s s s s s s s end
 
 (* module MkCoqRecordVec2 (R : CoqRecord) ( ) : CoqRecordVec2 = struct
  *   include R
@@ -707,6 +707,11 @@ module MkCoqRecordVec5 (R : CoqRecord) ( ) : CoqRecordVec5 = struct
   module N = struct type t = o s s s s s let wit = S (S (S (S (S O)))) end
   let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
 end
+module MkCoqRecordVec7 (R : CoqRecord) ( ) : CoqRecordVec7 = struct
+  include R
+  module N = struct type t = o s s s s s s s let wit = S (S (S (S (S (S (S O)))))) end
+  let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
+end
 
 module CoqIndSigRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_sig" end)
 module CoqIndSig = MkCoqRecordVec3 (CoqIndSigRecord) ()
@@ -728,6 +733,9 @@ module CoqMind = MkCoqRecordVec3 (CoqMindRecord) ()
 
 module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Entry" end)
 module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()
+
+module CoqMatchRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Match" end)
+module CoqMatch = MkCoqRecordVec7 (CoqMatchRecord) ()
 
 module CoqConstr_Dyn = struct
   open UConstrBuilder
