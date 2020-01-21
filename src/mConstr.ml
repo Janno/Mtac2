@@ -87,6 +87,7 @@ type 'a mconstr_head =
   | Mdeclare_mind : (arg_any * arg_any * arg_any * arg_any) mconstr_head
   | Minspect_mind : (arg_type * arg_type) mconstr_head
   | Minspect_match : (arg_type * arg_any) mconstr_head
+  | Mbuild_match : (arg_any) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
@@ -151,6 +152,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mdeclare_mind -> 4
   | Minspect_mind -> 2
   | Minspect_match -> 2
+  | Mbuild_match -> 1
 
 
 
@@ -395,6 +397,10 @@ let isinspect_mind = isconstant name_inspect_mind
 let name_inspect_match = constant_of_string "inspect_match"
 let isinspect_match = isconstant name_inspect_match
 
+let name_build_match = constant_of_string "build_match"
+let isbuild_match = isconstant name_build_match
+
+
 let mconstr_head_of h =
   match h with
   | _ when isret h ->
@@ -515,6 +521,8 @@ let mconstr_head_of h =
       MHead Minspect_mind
   | _ when isinspect_match h ->
       MHead Minspect_match
+  | _ when isbuild_match h ->
+      MHead Mbuild_match
   | _ -> raise Not_found
 
 let mconstr_head_opt h =
@@ -668,3 +676,5 @@ let mconstr_of (type a) args (h : a mconstr_head) =
       MConstr (Minspect_mind, (args 0, args 1))
   | Minspect_match ->
       MConstr (Minspect_match, (args 0, args 1))
+  | Mbuild_match ->
+      MConstr (Mbuild_match, (args 0))
