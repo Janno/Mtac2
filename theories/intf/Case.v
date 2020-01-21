@@ -391,6 +391,9 @@ NonCumulative Record Match
       match_branches: branches_type (constrs_of match_mind_entry) match_return_predicate;
     }.
 
+Definition return_type_of (m : Match) :=
+  return_type_for (match_return_predicate m) (match_val m).
+
 
 Record Case :=
     mkCase {

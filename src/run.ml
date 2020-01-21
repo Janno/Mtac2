@@ -1553,6 +1553,41 @@ let inspect_match (env, sigma) t v =
 
     Some (sigma, mat)
 
+let build_match sigma env t =
+  let (Cons (_, Cons (_, Cons (_, Cons (v, Cons (sort, Cons (ret, Cons (branches, Nil)))))))) =
+    CoqMatch.from_coq_vec sigma env t in
+  let ind = Retyping.get_type_of env sigma v in
+
+  let t_type, t_args = decompose_app sigma (EConstr.of_constr (RE.whd_betadeltaiota env sigma (of_econstr ind))) in
+
+  let (mind, ind_i), instance = destInd sigma t_type in
+
+  let sort = match CoqSort.from_coq sigma env sort with
+    | CoqSort.Prop_sort -> Sorts.Irrelevant
+    | CoqSort.Type_sort -> Sorts.Relevant
+  in
+
+
+  (* Take apart branches tuple *)
+  let branches =
+    let rec go n pairs acc =
+      if n == 0 then
+        List.rev acc
+      else
+        let branch, pairs = CoqPair.from_coq (env, sigma) pairs in
+        go (n-1) pairs (branch :: acc)
+    in
+    go (Inductiveops.nconstructors env (mind, ind_i)) branches []
+  in
+
+  let branches = Array.of_list (branches) in
+
+  let ci = Inductiveops.make_case_info env (mind, ind_i) sort Constr.MatchStyle in
+  let case = EConstr.mkCase (ci, ret, v, branches) in
+
+  sigma, case
+
+
 
 let koft sigma t =
   let lf n = Lazy.force (MtacNames.mkConstr ("Tm_kind." ^ n)) in
@@ -2443,10 +2478,15 @@ and primitive ctxt vms mh reduced_term =
         | None -> failwith "Not an inductive" (* TODO: proper exception *)
       end
   | MConstr (Minspect_match, (t, v)) ->
-      match inspect_match (env, sigma) (to_econstr t) (to_econstr v) with
-      | Some (sigma, desc) ->
-          ereturn sigma desc
-      | None -> failwith "Not an inductive" (* TODO: proper exception *)
+      begin
+        match inspect_match (env, sigma) (to_econstr t) (to_econstr v) with
+        | Some (sigma, desc) ->
+            ereturn sigma desc
+        | None -> failwith "Not an inductive" (* TODO: proper exception *)
+      end
+  | MConstr (Mbuild_match, (m)) ->
+      let sigma, types = build_match sigma env (to_econstr m) in
+      ereturn sigma types
 
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function
