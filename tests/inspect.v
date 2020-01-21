@@ -160,6 +160,22 @@ Module Matches.
                   end
                  ).
 
-  Mtac Do (M.inspect_match t2).
+  Mtac Do (
+         m <- M.inspect_match t2;
+         t2' <- M.build_match m;
+         match match_sort m as s return forall T : s, T -> M unit with
+         | Propₛ => fun _ _ => M.failwith "wrong sort"
+         | Typeₛ =>
+           fun T2' t2' =>
+             oeq <- M.unify T2' _ UniCoq;
+             match oeq with
+             | mNone => M.failwith "wrong type"
+             | mSome eq =>
+               match eq in _ =m= X return X -> M unit with
+               | meq_refl => fun t2_ => M.unify_or_fail UniMatchNoRed t2_ t2';; M.ret tt
+               end t2
+             end
+         end _ t2'
+       )%MC.
 
 End Matches.
