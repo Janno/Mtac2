@@ -605,7 +605,7 @@ let pr_backtrace (tr : backtrace) =
   prlist (fun t -> str "  " ++ pr_backtrace_entry t ++ str "\n") tr
 
 
-type elem_stack = (evar_map * fconstr * stack * backtrace)
+type elem_stack = (evar_map * Environ.env * fconstr * stack * backtrace)
 type elem = (evar_map * constr)
 
 type data_stack =
@@ -616,9 +616,9 @@ type data =
   | Val of elem
   | Err of elem * backtrace
 
-let return s t st tr : data_stack = Val (s, t, st, tr)
+let return s env t st tr : data_stack = Val (s, env, t, st, tr)
 
-let fail s t st tr : data_stack = Err (s, t, st, tr)
+let fail s env t st tr : data_stack = Err (s, env, t, st, tr)
 
 let name_occurn_env env n =
   let open Context.Named.Declaration in
@@ -1493,7 +1493,8 @@ let declare_mind env sigma poly params sigs mut_constrs =
    *            mind_entry_variance=None;
    *            mind_entry_private=None;
    *           } ubinders [] in *)
-  (sigma, CoqUnit.mkTT)
+  let env = Global.env () in
+  (sigma, env, CoqUnit.mkTT)
 
 
 let inspect_match (env, sigma) t v =
@@ -1757,7 +1758,7 @@ let rec run' ctxt (vms : vm list) =
   let ctxt_nu1_fail (_, env, renv, _) = {ctxt with env; renv; nus = ctxt.nus-1} in
   let ctxt_nu1 (_, env, renv, backtrace) = {ctxt with backtrace; env; renv; nus = ctxt.nus-1} in
   match vm, vms with
-  | Ret c, [] -> return ctxt.sigma c ctxt.stack ctxt.backtrace
+  | Ret c, [] -> return ctxt.sigma ctxt.env c ctxt.stack ctxt.backtrace
   | Ret c, (Bind (b, backtrace) :: vms) ->
       let stack = Zapp [|c|]::ctxt.stack in
       (run'[@tailcall]) {ctxt with backtrace; stack} (Code b :: vms)
@@ -1775,7 +1776,7 @@ let rec run' ctxt (vms : vm list) =
         (run'[@tailcall]) (ctxt_nu1 p) (Ret c :: vms)
   | Ret c, Rem (env, renv, was_nu) :: vms -> (run'[@tailcall]) {ctxt with env; renv; nus = if was_nu then ctxt.nus+1 else ctxt.nus} (Ret c :: vms)
 
-  | Fail c, [] -> fail ctxt.sigma c ctxt.stack ctxt.backtrace
+  | Fail c, [] -> fail ctxt.sigma ctxt.env c ctxt.stack ctxt.backtrace
   | Fail c, (Bind (_, _) :: vms) ->
       (run'[@tailcall]) ctxt (Fail c :: vms)
   | Fail c, (Try (sigma, stack, backtrace_try, b) :: vms) ->
@@ -2468,8 +2469,8 @@ and primitive ctxt vms mh reduced_term =
       ereturn sigma (koft sigma (CClosure.term_of_fconstr t))
 
   | MConstr (Mdeclare_mind, (poly, params, inds, constrs)) ->
-      let sigma, types = declare_mind env sigma (to_econstr poly) (to_econstr params) (to_econstr inds) (to_econstr constrs) in
-      ereturn sigma types
+      let sigma, env, types = declare_mind env sigma (to_econstr poly) (to_econstr params) (to_econstr inds) (to_econstr constrs) in
+      ereturn ~new_env:env sigma types
   | MConstr (Minspect_mind, (_, ind)) ->
       begin
         match inspect_mind (env, sigma) (to_econstr ind) with
@@ -2634,7 +2635,7 @@ let run (env0, sigma) ty t : data =
   let ty = List.nth ty 0 in
 
   match run' {env; renv=of_econstr renv; sigma; nus=0; stack=CClosure.empty_stack; backtrace=[]} [Code t] with
-  | Err (sigma', v, _, backtrace) ->
+  | Err (sigma', env, v, _, backtrace) ->
       (* let v = Vars.replace_vars vsubs v in *)
       let v = multi_subst_inv sigma' subs (to_econstr v) in
       let (ground, (sigma, v)) = check_exception sigma' sigma' env0 v in
@@ -2645,7 +2646,7 @@ let run (env0, sigma) ty t : data =
           ) backtrace
       in
       Err ((sigma, v), backtrace)
-  | Val (sigma', v, stack, tr) ->
+  | Val (sigma', env, v, stack, tr) ->
       assert (List.is_empty stack);
       let v = multi_subst_inv sigma' subs (to_econstr v) in
       let sigma' = try Typing.check env sigma' v ty with
