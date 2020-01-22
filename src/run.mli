@@ -7,7 +7,7 @@ type backtrace
 val pr_backtrace : backtrace -> Pp.t
 
 
-type elem_stack = (Evd.evar_map * CClosure.fconstr * CClosure.stack * backtrace)
+type elem_stack = (Evd.evar_map * Environ.env * CClosure.fconstr * CClosure.stack * backtrace)
 
 type elem = (evar_map * constr)
 
