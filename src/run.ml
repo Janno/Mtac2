@@ -1377,8 +1377,8 @@ let declare_mind env sigma poly params sigs mut_constrs =
   let n_inds = List.length inds in
   (* is there no Nat.iter in ocaml?? *)
   (* print_constr sigma env mut_constrs; *)
-  (* Strip off [n_params + n_inds] many lambdas. TODO: error handling, potentially delta-reduce. *)
-  let mut_constrs = strip_lambdas sigma mut_constrs (n_params + n_inds) in
+  (* Strip off [n_inds] many lambdas. TODO: error handling, potentially delta-reduce. *)
+  let mut_constrs = strip_lambdas sigma mut_constrs (n_inds) in
   (* prepare the list of parameters which we will append to the inductive type at the end of every constructor before we append indices. *)
   (* let param_args = fold_nat (fun k acc -> mkRel (n_params + n_inds - k + 1) :: acc) [] n_params in *)
   let param_args = List.mapi (fun i (name, typeX) -> mkRel (n_params - i)) params in
@@ -1394,8 +1394,11 @@ let declare_mind env sigma poly params sigs mut_constrs =
       in
       let sigma, constrs = CoqList.from_coq_conv sigma env (fun sigma constr ->
         (* print_constr sigma env constr; *)
-        let Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil)))) =
-          CoqConstrDef.from_coq_vec sigma env constr in
+        let Cons (_, Cons (_, Cons (name, Cons (constr_tele, Cons (constr_type, Nil))))) =
+          CoqConstrDefWop.from_coq_vec sigma env constr in
+        (* Both the telescope as well as the type have their own quantifiers for parameters. *)
+        let constr_tele = strip_lambdas sigma constr_tele (n_params) in
+        let constr_type = strip_lambdas sigma constr_type (n_params) in
         let sigma, n_constr_args, constr_type = CoqMTele.to_foralls sigma env constr_tele constr_type (fun sigma n_constr_args t ->
           let leftover_unit, rev_args = fold_nat (fun _ (t, acc) ->
             (* print_constr sigma env t; *)

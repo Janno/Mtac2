@@ -332,7 +332,7 @@ Definition declare_mind
            (polymorphic: bool)
            (params : MTele)
            (sigs : nelist (Inductive.Def params))
-           (constrs : Constructor.Unpar.Typs (map Inductive.sig sigs)) :
+           (constrs : Constructor.Par.Typs (map Inductive.sig sigs)) :
   t unit.
   make. Qed.
 
