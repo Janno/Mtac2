@@ -66,33 +66,22 @@ Module Inductive.
   Definition Vals_Mut {params} (sigs : Sigs params) :Type :=
     reduce mprod (map Typ sigs).
 
-  (** A chain of implications of inductive Typ's [Typ]s leading culminating in
-      [Type] [to]. *)
-  Definition bind_in {params} (sigs : Sigs params) (to : Type) : Type :=
-    fold_right (fun sig accu => Typ sig -> accu) to sigs.
 
-  (** Extracting a value from [bind_in]. *)
-  Fixpoint extract_bound_in
-           {T}
-           {params}
-           {sigs : Inductive.Sigs params} :
-    forall
-      (css : Inductive.bind_in sigs T)
-      (is : Inductive.Vals_Mut sigs),
-      T :=
-    match sigs as sigs return
-          forall
-            (css : Inductive.bind_in sigs T)
-            (is : Inductive.Vals_Mut sigs),
-            T
-    with
-    | ne_sing sig => fun css is => css is
-    | ne_cons sig sigs =>
-      fun css '(m: ia, is) =>
-        extract_bound_in (css ia) is
+  (** The telescope describing a list of mutually-inductive types.  *)
+  Fixpoint Tele {params} (sigs: Sigs params) : MTele :=
+    match sigs with
+    | ne_sing sig => mTele (fun _ : Typ sig => mBase)
+    | ne_cons sig sigs => mTele (fun _ : Typ sig => Tele sigs)
     end.
 
-
+  Fixpoint Args {params} {sigs: Sigs params} :
+    forall (is : Vals_Mut sigs), ArgsOf (Tele sigs) :=
+    match sigs as sigs return
+          forall (is : Vals_Mut sigs), ArgsOf (Tele sigs)
+    with
+    | ne_sing sig => fun i => mexistT _ i tt
+    | ne_cons sig sigs => fun '(m: i, is) => mexistT _ i (Args is)
+    end.
 
   (** Given a parameter assignment, describe the type of an index assignment for
       a given inductive signature. *)
@@ -168,7 +157,7 @@ Module Constructor.
       in reduce mprod cs.
 
     Definition Typs {params} (sigs : Inductive.Sigs params) :=
-      Inductive.bind_in sigs (MTele_val (curry_sort Typeₛ (Defs_Mut sigs))).
+      MTele_ConstT (MTele_val (curry_sort Typeₛ (Defs_Mut sigs))) (Inductive.Tele sigs).
 
   End Unpar.
 
@@ -226,8 +215,9 @@ Module Constructor.
       let cs_defs := map (fun sig => Defs (Inductive.arity sig)) sigs
       in reduce mprod cs_defs.
 
+
     Definition Typs {params} (sigs : Inductive.Sigs params) :=
-      Inductive.bind_in sigs (Defs_Mut sigs).
+      MTele_ConstT (Defs_Mut sigs) (Inductive.Tele sigs).
 
     (** A product of constructor values for a given inductive signature and its value.  *)
     Definition Vals {params} {sig : Inductive.Sig params}
@@ -277,7 +267,7 @@ Module Constructor.
                (css : Typs sigs)
                (is : Inductive.Vals_Mut sigs) :
       Type :=
-      Constructor.Par.Vals_Mut (Inductive.extract_bound_in css is) is.
+      Constructor.Par.Vals_Mut (apply_constT css (Inductive.Args is)) is.
 
   End Par.
 End Constructor.
@@ -399,7 +389,7 @@ Module Match.
 
   Definition constrs_sigs_of m :
     Constructor.Par.Defs (Inductive.arity (ind_sig_of m)) :=
-    let constrs := Inductive.extract_bound_in (Mutual.constr_defs _) (Mutual.inds _) in
+    let constrs := apply_constT (Mutual.constr_defs _) (Inductive.Args (Mutual.inds _)) in
     netuple_nth (BinNat.N.to_nat (Mutual.index m)) (constrs).
 
   Definition constrs_of m :
