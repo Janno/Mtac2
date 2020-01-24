@@ -131,7 +131,7 @@ Module M1.
 
   Definition testprog :=
     mind_test
-      (fun (I2 : forall T k, k = k -> _) T k =>
+      (fun (I2 : forall T k, k = k -> _) =>
           mnil
       ).
 
@@ -157,11 +157,11 @@ Module M2.
 
   Program Definition testprog :=
     mind_test
-      (fun I2 T k =>
+      (fun I2 =>
           [m:
-             {| Constructor.Unpar.name := "c1";
-                Constructor.Unpar.tele := [tele _ : T];
-                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))));
+             {| Constructor.Par.name := "c1";
+                Constructor.Par.tele := fun T k => [tele _ : T];
+                Constructor.Par.indices := (fun T k t => mexistT _ eq_refl tt);
              |}
           ]
       ).
@@ -198,18 +198,18 @@ Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
 
 Program Definition testprog :=
     mind_test
-    (fun I1 I2 T k =>
+    (fun I1 I2 =>
        (m:
           [m:
-             {| Constructor.Unpar.name := "c1";
-                Constructor.Unpar.tele := mTele (fun t : I2 T k => mBase);
-                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             {| Constructor.Par.name := "c1";
+                Constructor.Par.tele := fun T k => mTele (fun t : I2 T k => mBase);
+                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => tt))
              |}
           ];
           [m:
-             {| Constructor.Unpar.name := "c2";
-                Constructor.Unpar.tele := mTele (fun t : I2 T k => mBase);
-                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             {| Constructor.Par.name := "c2";
+                Constructor.Par.tele := fun T k => mTele (fun t : I2 T k => mBase);
+                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => tt))
              |}
           ]
         )
@@ -245,12 +245,12 @@ Module M4.
 
   Program Definition testprog :=
     mind_test
-      (fun I1 I2 T k =>
+      (fun I1 I2 =>
          (m:
             [m:
-               {| Constructor.Unpar.name := "c1";
-                  Constructor.Unpar.tele := [tele _ : I2 T k eq_refl];
-                  Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
+               {| Constructor.Par.name := "c1";
+                  Constructor.Par.tele := fun T k => [tele _ : I2 T k eq_refl];
+                  Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
                |}
             ];
           mnil)
