@@ -37,6 +37,8 @@ module UConstrBuilder : sig
 
   val from_string : string -> t
 
+  val print : t -> Pp.t
+
   val from_coq : t -> (Environ.env * Evd.evar_map) -> constr -> (constr array) option
 
   val build_app : t -> Evd.evar_map -> Environ.env
@@ -237,7 +239,7 @@ end
 module type CoqRecord = sig
   val constructor : UConstrBuilder.t
   val ty : UConstrBuilder.t
-  exception NotInConstructorNormalForm
+  exception NotInConstructorNormalForm of String.t
   val mkTy : Evd.evar_map -> Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
   val from_coq : Evd.evar_map -> Environ.env -> Evd.econstr -> Evd.econstr array
   val to_coq :

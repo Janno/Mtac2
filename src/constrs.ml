@@ -70,6 +70,8 @@ module UConstrBuilder = struct
 
   let from_string (s:string) : t = lazy (Nametab.global_of_path (Libnames.path_of_string s))
 
+  let print v = Printer.pr_global (Lazy.force v)
+
   let build_app s sigma env args =
     let (sigma, c) = mkUConstr_of_global (Lazy.force s) sigma env in
     (sigma, mkApp (c, args))
@@ -631,7 +633,7 @@ end
 module type CoqRecord = sig
   val constructor : UConstrBuilder.t
   val ty : UConstrBuilder.t
-  exception NotInConstructorNormalForm
+  exception NotInConstructorNormalForm of String.t
   val mkTy : Evd.evar_map -> Environ.env -> Evd.econstr array -> Evd.evar_map * Evd.econstr
   val from_coq : Evd.evar_map -> Environ.env -> Evd.econstr -> Evd.econstr array
   val to_coq :
@@ -649,14 +651,20 @@ module MkCoqRecord (F : sig
   let ty = from_string F.type_name
   let constructor = from_string F.constructor_name
 
-  exception NotInConstructorNormalForm
+  exception NotInConstructorNormalForm of String.t
 
   let mkTy sigma env args =
     build_app ty sigma env args
 
   let from_coq sigma env cterm =
     match from_coq constructor (env, sigma) cterm with
-    | None -> raise NotInConstructorNormalForm
+    | None ->
+        let expected = (UConstrBuilder.print constructor) in
+        let found = (Printer.pr_econstr_env env sigma cterm) in
+        let open Pp in
+        let msg = str "Expected constructor " ++ expected ++ str " but found term " ++ found ++ str " instead" in
+        let msg = Pp.string_of_ppcmds msg in
+        raise (NotInConstructorNormalForm msg)
     | Some args -> args
 
   let to_coq =
@@ -713,28 +721,28 @@ module MkCoqRecordVec7 (R : CoqRecord) ( ) : CoqRecordVec7 = struct
   let from_coq_vec sigma env cterm = Typelevel.Vector.from_array N.wit (from_coq sigma env cterm)
 end
 
-module CoqIndSigRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_sig" end)
+module CoqIndSigRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Inductive" let type_name = "Sig" end)
 module CoqIndSig = MkCoqRecordVec3 (CoqIndSigRecord) ()
 
-module CoqIndDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "ind_def" end)
+module CoqIndDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Inductive" let type_name = "Def" end)
 module CoqIndDef = MkCoqRecordVec3 (CoqIndDefRecord) ()
 
-module CoqConstrDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def" end)
+module CoqConstrDefRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Constructor.Unpar" let type_name = "Def" end)
 module CoqConstrDef = MkCoqRecordVec4 (CoqConstrDefRecord) ()
 
-module CoqConstrDefWopRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "constr_def_wop" end)
+module CoqConstrDefWopRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Constructor.Par" let type_name = "Def" end)
 module CoqConstrDefWop = MkCoqRecordVec5 (CoqConstrDefWopRecord) ()
 
-module CoqMindSpecRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Spec" end)
+module CoqMindSpecRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual" let type_name = "Def" end)
 module CoqMindSpec = MkCoqRecordVec4 (CoqMindSpecRecord) ()
 
-module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind" end)
+module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual" let type_name = "Val" end)
 module CoqMind = MkCoqRecordVec3 (CoqMindRecord) ()
 
-module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Mind_Entry" end)
+module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual" let type_name = "Nth" end)
 module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()
 
-module CoqMatchRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case" let type_name = "Match" end)
+module CoqMatchRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Match" let type_name = "Val" end)
 module CoqMatch = MkCoqRecordVec7 (CoqMatchRecord) ()
 
 module CoqConstr_Dyn = struct

@@ -117,20 +117,20 @@ Module Matches.
   Notation "'t1'" := (match 1 with | 0 => false | _ => true end).
   Notation t1_tgt :=
     (
-      Build_Match
-        (Build_Mind_Entry
-           (Build_Mind
-              (Build_Mind_Spec
+      Match.Build_Val
+        (Mutual.Build_Nth
+           (Mutual.Build_Val
+              (Mutual.Build_Def
                  false
                  [tele ]
-                 [ne:Build_ind_def
+                 [ne:Inductive.Build_Def
                        [tele ]
                        "nat"
-                       (Build_ind_sig [tele ] Typeₛ [tele ])
+                       (Inductive.Build_Sig [tele ] Typeₛ [tele ])
                  ]
                  (fun _ : Set =>
-                    [m: Build_constr_def_wop [tele ] [tele ] "O" [tele ] tt
-                    | Build_constr_def_wop [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => tt)])) nat
+                    [m: Constructor.Par.Build_Def [tele ] [tele ] "O" [tele ] tt
+                    | Constructor.Par.Build_Def [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => tt)])) nat
               (m:0; S; tt))
            0
            0
@@ -163,7 +163,7 @@ Module Matches.
   Mtac Do (
          m <- M.inspect_match t2;
          t2' <- M.build_match m;
-         match match_sort m as s return forall T : s, T -> M unit with
+         match Match.match_sort m as s return forall T : s, T -> M unit with
          | Propₛ => fun _ _ => M.failwith "wrong sort"
          | Typeₛ =>
            fun T2' t2' =>
