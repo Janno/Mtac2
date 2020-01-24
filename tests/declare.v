@@ -125,7 +125,7 @@ Module M1.
                          Inductive.arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
-  Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
+  Program Definition mind_test c := (M.declare_mind (Mutual.Build_Def false P ([ne: I2]) c)).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -151,7 +151,7 @@ Module M2.
                          Inductive.arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
-  Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
+  Program Definition mind_test c := (M.declare_mind (Mutual.Build_Def false P ([ne: I2]) c)).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -192,7 +192,7 @@ Module M3.
            Inductive.arity := fun T k => [tele]
         |}
     |}.
-Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
+Program Definition mind_test c := (M.declare_mind (Mutual.Build_Def false P ([ne: I1,  I2]) c)).
 Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
 (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 
@@ -239,7 +239,7 @@ Module M4.
         |}
     |}.
 
-  Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
+  Program Definition mind_test c := (M.declare_mind (Mutual.Build_Def false P ([ne: I1,  I2]) c)).
   Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
   (* Eval cbv beta iota fix delta [mfold_right typ_of] in *)
 

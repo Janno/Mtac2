@@ -328,11 +328,7 @@ Definition kind_of_term: forall{A: Type}, A -> t tm_kind.
 Definition replace {A B C} (x:A) : A =m= B -> t C -> t C.
   make. Qed.
 
-Definition declare_mind
-           (polymorphic: bool)
-           (params : MTele)
-           (sigs : nelist (Inductive.Def params))
-           (constrs : Constructor.Par.Typs (map Inductive.sig sigs)) :
+Definition declare_mind (ind : Mutual.Def) :
   t unit.
   make. Qed.
 

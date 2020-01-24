@@ -84,7 +84,7 @@ type 'a mconstr_head =
   | Mprint_timer : (arg_type * arg_any) mconstr_head
   | Mkind_of_term : (arg_type * arg_any) mconstr_head
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
-  | Mdeclare_mind : (arg_any * arg_any * arg_any) mconstr_head
+  | Mdeclare_mind : (arg_any) mconstr_head
   | Mexisting_instance : (arg_any * arg_any * arg_bool) mconstr_head
   | Minspect_mind : (arg_type * arg_type) mconstr_head
   | Minspect_match : (arg_type * arg_any) mconstr_head
@@ -150,7 +150,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mprint_timer -> 2
   | Mkind_of_term -> 2
   | Mreplace -> 6
-  | Mdeclare_mind -> 3
+  | Mdeclare_mind -> 1
   | Mexisting_instance -> 3
   | Minspect_mind -> 2
   | Minspect_match -> 2
@@ -678,7 +678,7 @@ let mconstr_of (type a) args (h : a mconstr_head) =
   | Mreplace ->
       MConstr (Mreplace, (args 0, args 1, args 2, args 3, args 4, args 5))
   | Mdeclare_mind ->
-      MConstr (Mdeclare_mind, (args 0, args 1, args 2))
+      MConstr (Mdeclare_mind, (args 0))
   | Mexisting_instance ->
       MConstr (Mexisting_instance, (args 0, args 1, args 2))
   | Minspect_mind ->
