@@ -81,7 +81,7 @@ type 'a mconstr_head =
   | Mprint_timer : (arg_type * arg_any) mconstr_head
   | Mkind_of_term : (arg_type * arg_any) mconstr_head
   | Mreplace : (arg_type * arg_type * arg_type * arg_any * arg_any * arg_any) mconstr_head
-  | Mdeclare_mind : (arg_any * arg_any * arg_any * arg_any) mconstr_head
+  | Mdeclare_mind : (arg_any) mconstr_head
   | Minspect_mind : (arg_type * arg_type) mconstr_head
   | Minspect_match : (arg_type * arg_any) mconstr_head
   | Mbuild_match : (arg_any) mconstr_head
