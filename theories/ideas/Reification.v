@@ -32,21 +32,21 @@ Definition fn_into_of (T ind: Type) : forall (F : Type), M (fn_into ind) :=
       M.ret (FN_INTO (mTele m) f)
   end).
 
-Definition fn_to_constr {T} (fn : string *m fn_into T): (constr_def mBase) :=
+Program Definition fn_to_constr {T} (fn : string *m fn_into T): (Constructor.Par.Def (params:=mBase) mBase) :=
   let '(m: name, FN_INTO m i) := fn in
   let i : MTele_ConstT (ArgsOf mBase) m := i in
-    {| constr_def_name := name;
-     constr_def_tele := m;
-     constr_def_indices := i;
+    {| Constructor.Par.name := name;
+       Constructor.Par.tele := m;
+       Constructor.Par.indices := i;
     |}.
 
 Program Definition declare_reif (T : Type) (ind_name: string) (fns : mlist (string *m dyn)) :=
   let any_name := reduce RedVmCompute (String.append ind_name "_any") in
-  let any_constr : constr_def mBase :=
+  let any_constr : Constructor.Par.Def (params:=mBase) mBase :=
       {|
-        constr_def_name := any_name;
-        constr_def_tele := mTele (fun _ : T => mBase);
-        constr_def_indices := fun _ => tt
+        Constructor.Par.name := any_name;
+        Constructor.Par.tele := mTele (fun _ : T => mBase);
+        Constructor.Par.indices := fun _ => tt
       |}
   in
   constrs <- \nu i,
@@ -61,10 +61,19 @@ Program Definition declare_reif (T : Type) (ind_name: string) (fns : mlist (stri
   ;
   M.print_term constrs;;
   M.declare_mind
+  (Mutual.Build_Def
     (true)                      (* polymorphic *)
     (mBase)                     (* No parameters for now *)
-    (NEList.ne_sing {|ind_def_name:= ind_name; ind_def_sig:= {|ind_sig_sort:=Typeₛ; ind_sig_arity := mBase |}|})
+    (NEList.ne_sing
+       {| Inductive.name:= ind_name;
+          Inductive.sig:=
+            {|
+              Inductive.sort:=Typeₛ;
+              Inductive.arity := mBase
+            |}
+       |})
     (constrs)
+)
 .
 
 Mtac Do (declare_reif nat "nats" [m: (m: "mult", Dyn mult)]).

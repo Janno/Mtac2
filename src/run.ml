@@ -1315,7 +1315,8 @@ let inspect_mind (env, sigma) t =
     Some (sigma, mind_entry)
 
 
-let declare_mind env sigma poly params sigs mut_constrs =
+let declare_mind env sigma def =
+  let Cons (poly, Cons (params, Cons (sigs, Cons (mut_constrs, Nil)))) = CoqMindSpec.from_coq_vec sigma env def in
   let poly = CoqBool.from_coq sigma poly in
   let vars = vars_of_env env in
   (* Calculate length and LocalEntry list from parameter telescope.
@@ -2489,8 +2490,8 @@ and primitive ctxt vms mh reduced_term =
   | MConstr (Mkind_of_term, (_, t)) ->
       ereturn sigma (koft sigma (CClosure.term_of_fconstr t))
 
-  | MConstr (Mdeclare_mind, (poly, params, inds, constrs)) ->
-      let sigma, env, types = declare_mind env sigma (to_econstr poly) (to_econstr params) (to_econstr inds) (to_econstr constrs) in
+  | MConstr (Mdeclare_mind, def) ->
+      let sigma, env, types = declare_mind env sigma (to_econstr def) in
       ereturn ~new_env:env sigma types
   | MConstr (Minspect_mind, (_, ind)) ->
       begin
