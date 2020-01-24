@@ -119,10 +119,10 @@ Definition typ_of {A : Type} (a : A) := A.
 Import TeleNotation.
 Notation P := [tele (T : Type) (k : nat)].
 Module M1.
-  Notation I2 := {| ind_def_name := "blubb__";
-                    ind_def_sig :=
-                      {| ind_sig_sort := Propₛ;
-                         ind_sig_arity := fun T k => [tele _ : k = k]
+  Notation I2 := {| Inductive.name := "blubb__";
+                    Inductive.sig :=
+                      {| Inductive.sort := Propₛ;
+                         Inductive.arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
   Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
@@ -145,10 +145,10 @@ Module M1.
 End M1.
 
 Module M2.
-  Notation I2 := {| ind_def_name := "blubb__";
-                    ind_def_sig :=
-                      {| ind_sig_sort := Propₛ;
-                         ind_sig_arity := fun T k => [tele _ : k = k]
+  Notation I2 := {| Inductive.name := "blubb__";
+                    Inductive.sig :=
+                      {| Inductive.sort := Propₛ;
+                         Inductive.arity := fun T k => [tele _ : k = k]
                       |}
                  |}.
   Program Definition mind_test := (M.declare_mind false P ([ne: I2])).
@@ -159,9 +159,9 @@ Module M2.
     mind_test
       (fun I2 T k =>
           [m:
-             {| constr_def_name := "c1";
-                constr_def_tele := [tele _ : T];
-                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))));
+             {| Constructor.Unpar.name := "c1";
+                Constructor.Unpar.tele := [tele _ : T];
+                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => ((mexistT _ eq_refl tt))));
              |}
           ]
       ).
@@ -178,17 +178,19 @@ End M2.
 Module M3.
 
   Notation I1 :=
-    {| ind_def_name := "bla__";
-       ind_def_sig := {| ind_sig_sort := Typeₛ;
-                         ind_sig_arity := fun T k => [tele]
-                      |}
+    {| Inductive.name := "bla__";
+       Inductive.sig :=
+         {| Inductive.sort := Typeₛ;
+            Inductive.arity := fun T k => [tele]
+         |}
     |}.
   Notation I2 :=
     {|
-      ind_def_name := "blubb__";
-      ind_def_sig := {| ind_sig_sort := Propₛ;
-                        ind_sig_arity := fun T k => [tele]
-                     |}
+      Inductive.name := "blubb__";
+      Inductive.sig :=
+        {| Inductive.sort := Propₛ;
+           Inductive.arity := fun T k => [tele]
+        |}
     |}.
 Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
 Eval cbv beta iota fix delta [mfold_right typ_of] in typ_of mind_test.
@@ -199,15 +201,15 @@ Program Definition testprog :=
     (fun I1 I2 T k =>
        (m:
           [m:
-             {| constr_def_name := "c1";
-                constr_def_tele := mTele (fun t : I2 T k => mBase);
-                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             {| Constructor.Unpar.name := "c1";
+                Constructor.Unpar.tele := mTele (fun t : I2 T k => mBase);
+                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
              |}
           ];
           [m:
-             {| constr_def_name := "c2";
-                constr_def_tele := mTele (fun t : I2 T k => mBase);
-                constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
+             {| Constructor.Unpar.name := "c2";
+                Constructor.Unpar.tele := mTele (fun t : I2 T k => mBase);
+                Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => tt))
              |}
           ]
         )
@@ -222,17 +224,19 @@ End M3.
 
 Module M4.
   Notation I1 :=
-    {| ind_def_name := "bla__";
-       ind_def_sig := {| ind_sig_sort := Typeₛ;
-                         ind_sig_arity := fun T k => [tele x y : nat]
-                      |}
+    {| Inductive.name := "bla__";
+       Inductive.sig :=
+         {| Inductive.sort := Typeₛ;
+            Inductive.arity := fun T k => [tele x y : nat]
+         |}
     |}.
   Notation I2 :=
     {|
-      ind_def_name := "blubb__";
-      ind_def_sig := {| ind_sig_sort := Propₛ;
-                        ind_sig_arity := fun T k => [tele _ : k = k]
-                     |}
+      Inductive.name := "blubb__";
+      Inductive.sig :=
+        {| Inductive.sort := Propₛ;
+           Inductive.arity := fun T k => [tele _ : k = k]
+        |}
     |}.
 
   Program Definition mind_test := (M.declare_mind false P ([ne: I1,  I2])).
@@ -244,9 +248,9 @@ Module M4.
       (fun I1 I2 T k =>
          (m:
             [m:
-               {| constr_def_name := "c1";
-                  constr_def_tele := [tele _ : I2 T k eq_refl];
-                  constr_def_indices := (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
+               {| Constructor.Unpar.name := "c1";
+                  Constructor.Unpar.tele := [tele _ : I2 T k eq_refl];
+                  Constructor.Unpar.indices := (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
                |}
             ];
           mnil)

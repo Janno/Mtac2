@@ -331,18 +331,18 @@ Definition replace {A B C} (x:A) : A =m= B -> t C -> t C.
 Definition declare_mind
            (polymorphic: bool)
            (params : MTele)
-           (sigs : nelist (ind_def params))
-           (constrs : constrs_defs_in_ctx sigs) :
+           (sigs : nelist (Inductive.Def params))
+           (constrs : Constructor.Unpar.Typs (map Inductive.sig sigs)) :
   t unit.
   make. Qed.
 
-Definition inspect_mind {T: Type} (ind : T) : t Mind_Entry.
+Definition inspect_mind {T: Type} (ind : T) : t Mutual.Nth.
   make. Qed.
 
-Definition inspect_match {T: Type} (m : T) : t Match.
+Definition inspect_match {T: Type} (m : T) : t Match.Val.
   make. Qed.
 
-Definition build_match (m : Match) : t (return_type_of m).
+Definition build_match (m : Match.Val) : t (Match.return_type_of m).
   make. Qed.
 
 Arguments t _%type.
