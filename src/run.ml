@@ -1267,7 +1267,7 @@ let inspect_mind (env, sigma) t =
     (* Feedback.msg_debug (Pp.str "HERE"); *)
 
     let sigma, (_, inds, _, constrs) = Utils.NEList.fold_right_i (
-      fun ind_i (ty, _, _, ind_def, _) (sigma, acc) ->
+      fun ind_i (ty, _, _, _, _) (sigma, acc) ->
         let ind_i = ind_i in
         let ind = EConstr.mkIndU ((mind, ind_i), instance) in
         let ty = EConstr.of_constr ty in
