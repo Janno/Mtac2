@@ -119,7 +119,7 @@ module MetaCoqRun = struct
       | None -> Typing.type_of env sigma t
     in
     match Run.run (env, sigma) ty t with
-    | Run.Val (sigma, v) ->
+    | Run.Val (env, (sigma, v)) ->
         let open Proofview in let open Proofview.Notations in
         Unsafe.tclEVARS sigma >>= fun _->
         if not istactic then

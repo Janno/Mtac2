@@ -16,7 +16,7 @@ type data_stack =
   | Err of elem_stack
 
 type data =
-  | Val of elem
+  | Val of Environ.env * elem
   | Err of elem * backtrace
 
 val make_evar : evar_map -> env -> constr -> evar_map * constr (* used in metaCoqInterp *)
