@@ -1460,7 +1460,7 @@ let declare_mind env sigma def =
                        ~private_ind:(false)
                        ~finite:(Declarations.Finite)
   in
-  let _ = ComInductive.declare_mutual_inductive_with_eliminations mie univs [] in
+  let mind = ComInductive.declare_mutual_inductive_with_eliminations mie univs [] in
 
   (* let open Entries in
    * ComInductive.interp_mutual_inductive_constr
@@ -1498,7 +1498,51 @@ let declare_mind env sigma def =
    *            mind_entry_private=None;
    *           } ubinders [] in *)
   let env = Global.env () in
-  (sigma, env, CoqUnit.mkTT)
+
+  (* The inductive is declared. Now we need to return it. *)
+
+  let (sigma, ind) = EConstr.fresh_global env sigma (GlobRef.IndRef (mind, 0)) in
+  let (_, inst) = EConstr.destInd sigma ind in
+  let univs = EConstr.EInstance.kind sigma inst in
+
+  let sigma, (_, inds, _, constrs) = Utils.NEList.fold_right_i (
+    fun ind_i _ (sigma, acc) ->
+      let ind_i = ind_i in
+      let ind = EConstr.mkIndU ((mind, ind_i), inst) in
+      let ty = Inductiveops.type_of_inductive env ((mind, ind_i), univs) in
+      let ty = EConstr.of_constr ty in
+
+      let sigma, cs_ty, cs =
+        Array.fold_right_i
+          (fun j ty (sigma, cs_ty, cs) ->
+             let ty = EConstr.of_constr ty in
+             let c = EConstr.mkConstructUi (((mind, ind_i), inst), j+1) in
+             let sigma, cs = CoqPair.mkPair sigma env ty cs_ty c cs in
+             let sigma, cs_ty = CoqPair.mkType sigma env ty cs_ty in
+             sigma, cs_ty, cs
+          )
+          (Inductiveops.type_of_constructors env ((mind, ind_i), univs))
+          (sigma, CoqUnit.mkType, CoqUnit.mkTT)
+      in
+
+      match acc with
+      | None ->
+          let inds_ty = ty in
+          let constrs = cs in
+          let constrs_ty = cs_ty in
+          sigma, (inds_ty, ind, constrs_ty, constrs)
+      | Some (inds_ty, inds, constrs_ty, constrs) ->
+          let sigma, inds = CoqPair.mkPair sigma env ty inds_ty ind inds in
+          let sigma, inds_ty = CoqPair.mkType sigma env ty inds_ty in
+
+          let sigma, constrs = CoqPair.mkPair sigma env cs_ty constrs_ty cs constrs in
+          let sigma, constrs_ty = CoqPair.mkType sigma env cs_ty constrs_ty in
+          sigma, (inds_ty, inds, constrs_ty, constrs)
+  ) 0 (inds) sigma in
+
+  let sigma, v = CoqMindDep.to_coq sigma env [|def; inds; constrs|] in
+
+  (sigma, env, v)
 
 
 let inspect_match (env, sigma) t v =

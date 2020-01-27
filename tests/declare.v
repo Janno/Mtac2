@@ -137,10 +137,9 @@ Module M1.
 
   Eval cbv in testprog.
 
-  Eval cbn in ltac:(mrun(
-                        let t := dreduce ((@S.Fun), testprog) testprog in
-                        t
-                   )).
+  Mtac Do
+       let t := dreduce ((@S.Fun), testprog) testprog in
+       t >>= M.print_term.
 
 End M1.
 
@@ -168,10 +167,9 @@ Module M2.
 
   Eval cbv in testprog.
 
-  Eval cbn in ltac:(mrun(
-                        let t := dreduce ((@S.Fun), testprog) testprog in
-                        t
-                   )).
+  Mtac Do
+       let t := dreduce ((@S.Fun), testprog) testprog in
+       t >>= M.print_term.
 
 End M2.
 
@@ -215,10 +213,9 @@ Program Definition testprog :=
         )
     ).
 
-Eval cbn in ltac:(mrun(
-                      let t := dreduce ((@S.Fun), testprog) testprog in
-                      t
-    )).
+Mtac Do
+     let t := dreduce ((@S.Fun), testprog) testprog in
+     t >>= M.print_term.
 
 End M3.
 
@@ -257,10 +254,9 @@ Module M4.
       ).
   Eval cbv in testprog.
 
-  Eval cbn in ltac:(mrun(
-                        let t := dreduce ((@S.Fun), testprog) testprog in
-                        t
-                   )).
+  Mtac Do
+       let t := dreduce ((@S.Fun), testprog) testprog in
+       t >>= M.print_term.
 
 End M4.
 End Inductives.

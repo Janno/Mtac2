@@ -739,6 +739,9 @@ module CoqMindSpec = MkCoqRecordVec4 (CoqMindSpecRecord) ()
 module CoqMindRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual" let type_name = "Val" end)
 module CoqMind = MkCoqRecordVec3 (CoqMindRecord) ()
 
+module CoqMindRecordDep = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual.OfDef" let type_name = "Val" end)
+module CoqMindDep = MkCoqRecordVec3 (CoqMindRecordDep) ()
+
 module CoqMindEntryRecord = MkCoqRecordDefault (struct let path = "Mtac2.intf.Case.Mutual" let type_name = "Nth" end)
 module CoqMindEntry = MkCoqRecordVec4 (CoqMindEntryRecord) ()
 
