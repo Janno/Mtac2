@@ -613,7 +613,7 @@ type data_stack =
   | Err of elem_stack
 
 type data =
-  | Val of elem
+  | Val of Environ.env * elem
   | Err of elem * backtrace
 
 let return s env t st tr : data_stack = Val (s, env, t, st, tr)
@@ -2678,7 +2678,7 @@ let run (env0, sigma) ty t : data =
             raise e
       in
       (* let sigma', _ = Typing.type_of env0 sigma' v in *)
-      Val (sigma', v)
+      Val (env, (sigma', v))
 
 (** set the run function in unicoq *)
 let _ =
@@ -2694,4 +2694,4 @@ let _ = Unicoq.Munify.set_run (fun env sigma t ->
   let ty = Retyping.get_type_of env sigma t in
   match run (env, sigma) ty t with
   | Err _ -> None
-  | Val c -> Some c)
+  | Val (env, c) -> Some c)
