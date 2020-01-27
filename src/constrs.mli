@@ -267,5 +267,6 @@ module CoqConstrDef : CoqRecordVec4
 module CoqConstrDefWop : CoqRecordVec5
 module CoqMindSpec : CoqRecordVec4
 module CoqMind : CoqRecordVec3
+module CoqMindDep : CoqRecordVec3
 module CoqMindEntry : CoqRecordVec4
 module CoqMatch : CoqRecordVec7

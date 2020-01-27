@@ -73,7 +73,8 @@ Program Definition declare_reif (T : Type) (ind_name: string) (fns : mlist (stri
             |}
        |})
     (constrs)
-)
+);;
+  M.ret tt
 .
 
 Mtac Do (declare_reif nat "nats" [m: (m: "mult", Dyn mult)]).
