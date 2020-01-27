@@ -298,6 +298,15 @@ Module Mutual.
       params_given: N;
       indices_given: N;
     }.
+
+  Module OfDef.
+    Record Val (def : Def) :=
+      {
+        inds : Inductive.Vals_Mut (map Inductive.sig (ind_defs def));
+        constrs : Constructor.Par.Vals_Mut_Typs (constr_defs def) (inds)
+      }.
+  End OfDef.
+
 End Mutual.
 
 

@@ -329,7 +329,7 @@ Definition replace {A B C} (x:A) : A =m= B -> t C -> t C.
   make. Qed.
 
 Definition declare_mind (ind : Mutual.Def) :
-  t unit.
+  t (Mutual.OfDef.Val ind).
   make. Qed.
 
 Definition inspect_mind {T: Type} (ind : T) : t Mutual.Nth.
