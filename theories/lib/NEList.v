@@ -178,8 +178,11 @@ Fixpoint netuple_nth {A} {f : A -> Type} {l : nelist A} (n: nat) :
   match l as l, n as n return reduce mprod (map f l) -> f (nth n l) with
   | ne_sing _, 0
   | ne_sing _, S _ => fun x => x
-  | ne_cons _ _, 0 => fun '(m: x, _) => x
-  | ne_cons _ l, S n => fun '(m: _, p) => netuple_nth n p
+  (* We need to be very careful to not force the tuple in the two cases below.
+     This function will eventually be called on tuples of unknown value and we
+     need it to compute despite that. *)
+  | ne_cons _ _, 0 => fun xs => mfst xs
+  | ne_cons _ l, S n => fun xs => netuple_nth n (msnd xs)
   end
 .
 
