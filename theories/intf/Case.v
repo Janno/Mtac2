@@ -333,8 +333,12 @@ Module Match.
     mfold_right (fun a acc => F a *m acc) unit l ->
     Type :=
     match l as l return mfold_right (fun a acc => F a *m acc) unit l -> Type with
-    | mnil => fun 'tt => unit
-    | mcons a l => fun '(m: fa, t) => g _ fa *m zip_dep_fold g t
+      (* This function ends up being called with arguments that do __not__ reduce.
+         We therefore need to be careful to not destruct them or we risk blocking the overall reduction.
+       *)
+    | mnil => fun _ => unit
+    | mcons a l =>
+      fun p => g _ (mfst p) *m zip_dep_fold g (msnd p)
     end.
 
 
