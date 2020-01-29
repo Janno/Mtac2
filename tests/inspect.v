@@ -128,7 +128,7 @@ Module Matches.
                        "nat"
                        (Inductive.Build_Sig [tele ] Typeₛ [tele ])
                  ]
-                 (fun _ : Set =>
+                 (fun nat : Set =>
                     [m: Constructor.Par.Build_Def [tele ] [tele ] "O" [tele ] tt
                     | Constructor.Par.Build_Def [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => tt)])) nat
               (m:0; S; tt))
