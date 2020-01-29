@@ -1107,8 +1107,6 @@ let inspect_mind (env, sigma) t =
       in
 
 
-      let ind_family = Inductiveops.make_ind_family (((mind, ind_i), univs), []) in
-
 
       (* let ty = Typeops.judge_of_inductive env ((mind, ind_i), univs) in
        * let ty = ty.uj_type in *)
@@ -1139,21 +1137,20 @@ let inspect_mind (env, sigma) t =
 
       let sigma, constr_def_ty = CoqConstrDefWop.mkTy sigma env [|params; arity_tele_under_params|] in
 
-      let nf_lc = Inductiveops.get_constructors env ind_family in
+      let nf_lc = mbody.mind_packets.(ind_i).mind_nf_lc in
 
       let sigma, clist =
         Array.fold_right_i (
-          fun i summary (sigma, clist) ->
+          fun i (constr_ctx, concl) (sigma, clist) ->
             (* constr_ctx contains parameters. *)
             (* contexts seem to be reversed => chop off parameters from the back *)
-            let open Inductiveops in
-            let constr_ctx = summary.cs_args in
             let constr_ctx, _ = List.chop (List.length constr_ctx - mbody.mind_nparams) constr_ctx in
             (* Feedback.msg_debug (Printer.pr_rel_context env sigma constr_ctx); *)
             let sigma, tele = CoqMTele.of_rel_context sigma env constr_ctx in
             (* let _, args = decompose_appvect sigma (EConstr.of_constr constr_concl) in
              * let args = Array.to_list args in *)
-            let args = List.map EConstr.of_constr (Array.to_list (summary.cs_concl_realargs)) in
+            let (_, args) = Constr.decompose_app concl in
+            let args = List.map EConstr.of_constr (args) in
             (* args contain parameters. remove them to compute description of indices. *)
             let _, args = List.chop mbody.mind_nparams args in
             (* Feedback.msg_debug (Pp.int mbody.mind_nparams);
