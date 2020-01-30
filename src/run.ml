@@ -1306,7 +1306,7 @@ let inspect_mind (env, sigma) t =
     let params_given = min(List.length t_args) (mbody.mind_nparams) in
     let indices_given = max(List.length t_args - mbody.mind_nparams) (0) in
 
-    let sigma, mind_entry = CoqMindEntry.to_coq sigma env [|mind; CoqN.to_coq ind_i; CoqN.to_coq params_given; CoqN.to_coq indices_given |] in
+    let sigma, mind_entry = CoqMindEntry.to_coq sigma env [|mind; CoqNat.to_coq ind_i; CoqNat.to_coq params_given; CoqNat.to_coq indices_given |] in
 
     let sigma, mind_entry = Evarsolve.refresh_universes None env sigma mind_entry in
     Some (sigma, mind_entry)
