@@ -45,6 +45,11 @@ module UConstrBuilder : sig
     -> constr array -> (Evd.evar_map * constr)
 end
 
+module CoqNat : sig
+  val from_coq : Evd.evar_map -> constr -> int
+  val to_coq : int -> constr
+end
+
 module CoqN : sig
   exception NotAnN
 

@@ -320,6 +320,35 @@ module CoqPositive = struct
       mkApp(mkConstr_of_global xI, [|to_coq ((n-1)/2)|])
 end
 
+module CoqNat = struct
+  open Constrs
+  let o = mkGlobal "Coq.Init.Datatypes.O"
+  let s = mkGlobal "Coq.Init.Datatypes.S"
+
+  let from_coq sigma =
+    let rec go acc t =
+      if isGlobal sigma o t then
+        acc
+      else
+        let h, args = decompose_appvect sigma t in
+        if isGlobal sigma s t then
+          go (acc + 1) (args.(0))
+        else
+          CErrors.user_err Pp.(str "Not a nat")
+    in go 0
+
+  let to_coq =
+    let rec go acc n =
+      if n == 0 then
+        acc
+      else
+        let acc = mkApp (mkConstr_of_global s, [|acc|]) in
+        go acc (n-1)
+    in
+    go (mkConstr_of_global o)
+end
+
+
 module CoqN = struct
   open Constrs
   (* let tN = Constr.mkConstr "Coq.Numbers.BinNums.N" *)
