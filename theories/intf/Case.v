@@ -294,9 +294,9 @@ Module Mutual.
   Record Nth :=
     {
       val: Val;
-      index: N;
-      params_given: N;
-      indices_given: N;
+      index: nat;
+      params_given: nat;
+      indices_given: nat;
     }.
 
   Module OfDef.
@@ -394,16 +394,16 @@ Module Match.
 
   Definition ind_sig_of (m : Mutual.Nth) :
     Inductive.Sig (Mutual.params (Mutual.def (Mutual.val m))) :=
-    nth (BinNat.N.to_nat (Mutual.index m)) (map Inductive.sig (Mutual.ind_defs (Mutual.def (Mutual.val m))))
+    nth (Mutual.index m) (map Inductive.sig (Mutual.ind_defs (Mutual.def (Mutual.val m))))
   .
 
   Definition ind_arg_of m :=
-    netuple_nth (BinNat.N.to_nat (Mutual.index m)) ((Mutual.inds (Mutual.val m))).
+    netuple_nth (Mutual.index m) ((Mutual.inds (Mutual.val m))).
 
   Definition constrs_sigs_of m :
     Constructor.Par.Defs (Inductive.arity (ind_sig_of m)) :=
     let constrs := apply_constT (Mutual.constr_defs _) (Inductive.Args (Mutual.inds _)) in
-    netuple_nth (BinNat.N.to_nat (Mutual.index m)) (constrs).
+    netuple_nth (Mutual.index m) (constrs).
 
   Definition constrs_of m :
     Constructor.Par.Vals (constrs_sigs_of m) (ind_arg_of m) :=
