@@ -11,6 +11,12 @@ Arguments nelist _ : clear implicits.
 Section Funs.
   Context {A : Type}.
 
+  Fixpoint length (l : nelist A) : nat :=
+    match l with
+    | ne_sing _ => 1
+    | ne_cons _ l => S (length l)
+    end.
+
   Definition hd (l : nelist A) : A :=
     match l with
     | ne_sing a | ne_cons a _ => a

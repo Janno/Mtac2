@@ -300,11 +300,14 @@ Module Mutual.
     }.
 
   Module OfDef.
-    Record Val (def : Def) :=
+    Record Val {def : Def} :=
       {
         inds : Inductive.Vals_Mut (map Inductive.sig (ind_defs def));
         constrs : Constructor.Par.Vals_Mut_Typs (constr_defs def) (inds)
       }.
+    Arguments Val : clear implicits.
+
+    Definition val {def} (v : Val def) : Mutual.Val := Mutual.Build_Val def (inds v) (constrs v).
   End OfDef.
 
 End Mutual.
@@ -356,18 +359,17 @@ Module Match.
     let p := apply_curry_sort p in
     p match_val.
 
-  Definition branches_type
+
+  Definition branch_type
              {match_sort: S.Sort}
              {match_param_tele: MTele}
              {match_ind_def: Inductive.Sig match_param_tele}
              {match_ind : Inductive.Typ match_ind_def}
-             {match_constrs_sig: Constructor.Par.Defs (Inductive.arity match_ind_def)}
              {match_param_args: ArgsOf match_param_tele}
-             (match_constrs: Constructor.Par.Vals match_constrs_sig _)
              (match_return_predicate: return_predicate_type match_param_args match_ind match_sort)
+             (csig : Constructor.Par.Def _)
+             (c : Constructor.Par.Typ csig _)
     :=
-      zip_dep_fold
-        (fun (csig : Constructor.Par.Def _) (c: Constructor.Par.Typ csig _) =>
            (* [csig     ≈ ∀ x .. y, Ind j .. k] *)
            (* [c : csig ≈ λ x .. y, constr] *)
            (* trying to build:
@@ -389,8 +391,19 @@ Module Match.
                     return_type_for match_return_predicate c
                  )
              )
-        )
-        match_constrs.
+  .
+
+  Definition branches_type
+             {match_sort: S.Sort}
+             {match_param_tele: MTele}
+             {match_ind_def: Inductive.Sig match_param_tele}
+             {match_ind : Inductive.Typ match_ind_def}
+             {match_constrs_sig: Constructor.Par.Defs (Inductive.arity match_ind_def)}
+             {match_param_args: ArgsOf match_param_tele}
+             (match_constrs: Constructor.Par.Vals match_constrs_sig _)
+             (match_return_predicate: return_predicate_type match_param_args match_ind match_sort)
+    :=
+      zip_dep_fold (branch_type match_return_predicate) match_constrs.
 
   Definition ind_sig_of (m : Mutual.Nth) :
     Inductive.Sig (Mutual.params (Mutual.def (Mutual.val m))) :=
@@ -413,23 +426,23 @@ Module Match.
   NonCumulative Record Val
     :=
       {
-        match_mind_entry: Mutual.Nth;
+        mind_entry: Mutual.Nth;
         (** the parameters of the discriminant *)
-        match_param_args: ArgsOf (Mutual.params (Mutual.def (Mutual.val match_mind_entry)));
+        param_args: ArgsOf (Mutual.params (Mutual.def (Mutual.val mind_entry)));
         (** the indices of the inductive value being matched on *)
-        match_indices: Inductive.Index_Typ (ind_sig_of match_mind_entry) match_param_args;
+        indices: Inductive.Index_Typ (ind_sig_of mind_entry) param_args;
         (** the value being matched on  *)
-        match_val: Inductive.Inhab (ind_arg_of match_mind_entry) match_indices;
+        val: Inductive.Inhab (ind_arg_of mind_entry) indices;
 
         (** the sort of the match, i.e. the Sort of the return type. *)
-        match_sort: S.Sort;
+        sort: S.Sort;
         (** the return predicate [R : ∀ j .. k, I j .. k -> Type]  *)
-        match_return_predicate: return_predicate_type match_param_args (ind_arg_of match_mind_entry) match_sort;
+        return_predicate: return_predicate_type param_args (ind_arg_of mind_entry) sort;
         (** the branches *)
-        match_branches: branches_type (constrs_of match_mind_entry) match_return_predicate;
+        branches: branches_type (constrs_of mind_entry) return_predicate;
       }.
 
   Definition return_type_of (m : Val) :=
-    return_type_for (match_return_predicate m) (match_val m).
+    return_type_for (return_predicate m) (val m).
 
 End Match.

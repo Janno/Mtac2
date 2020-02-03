@@ -163,7 +163,7 @@ Module Matches.
   Mtac Do (
          m <- M.inspect_match t2;
          t2' <- M.build_match m;
-         match Match.match_sort m as s return forall T : s, T -> M unit with
+         match Match.sort m as s return forall T : s, T -> M unit with
          | Propₛ => fun _ _ => M.failwith "wrong sort"
          | Typeₛ =>
            fun T2' t2' =>
