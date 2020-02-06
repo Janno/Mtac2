@@ -66,18 +66,9 @@ Section SpNF.
   Definition SpNFTele (i : Mutual.Val) n : MTele :=
     extend_tele (SpNFTele_inner i n).
 
-  Definition SpNFTyTy i n :=
-    curry_sort Typeₛ
-      (
-        fun args : ArgsOf (SpNFTele i n) =>
-          let '(mexistT _ args_param args) := args_extend args in
-          let '(mexistT _ args_indices (mexistT _ arg_i _)) := args_extend args in
-          Type
-      ).
-
   Definition SpNFType i n :=
-    curry_val (T:=SpNFTyTy i n)
-      (s:=Typeₛ)
+    curry_sort
+      Typeₛ
       (
         fun args : ArgsOf (SpNFTele i n) =>
           let '(mexistT _ args_param args) := args_extend args in
@@ -108,87 +99,6 @@ Section SpNF.
       Match.return_predicate := P;
       Match.branches := (m: p0; pS; tt)
     |}.
-
-  Fixpoint first_n_branch_types_acc (P : nat -> Prop) (n : nat) (acc : nat) :=
-    match n with
-    | 0 => P acc : Type
-    | S n => P acc *m first_n_branch_types_acc P n (S acc)
-    end.
-
-  Definition first_n_branch_types (P : nat -> Prop) (n: nat) :=
-    first_n_branch_types_acc P n 0.
-
-  Require Import Fin.
-
-  Definition bounded_pred (P : nat -> Prop) (n : nat) :=
-    (forall m, m <= n -> P m) -> forall m, P m.
-
-  Fixpoint to_nat {n} (k : Fin.t n) : nat :=
-    match k in Fin.t n with
-    | F1 => 0
-    | FS k => S (to_nat k)
-    end.
-
-  Program Fixpoint of_nat_cert (n k : nat) : sum ({k' : Fin.t n & to_nat k' = k }) (n <= k) :=
-    match n as n return
-          sum ({k' : Fin.t n & to_nat k' = k }) (k >= n)
-    with
-    | 0 => inr (le_0_n _)
-    | S n =>
-      match k as k return
-            sum ({k' : Fin.t (S n) & to_nat k' = k }) (k >= S n)
-      with
-      | 0 => inl (existT _ F1 eq_refl)
-      | S k =>
-        match of_nat_cert n k return _ with
-        | inl (existT _ k' eq) => inl (existT _ (FS k') _)
-        | inr H => inr (Le.le_n_S _ _ H)
-        end
-      end
-    end.
-
-  Fixpoint plus_0 (n : nat) : n+0 = n :=
-    match n as n return n+0 = n with
-    | 0 => eq_refl
-    | S n => f_equal _ (plus_0 n)
-    end.
-
-  Fixpoint plus_S (n m : nat) : n + S m = S n + m :=
-    match n with
-    | 0 => eq_refl
-    | S n => f_equal _ (plus_S n m)
-    end.
-
-  Fixpoint get_branch {P} (acc : nat) {n} (k : Fin.t (S n)) : first_n_branch_types_acc P n acc -> P (acc + to_nat k) :=
-    match k as k in Fin.t m return
-          match m with
-          | S m => first_n_branch_types_acc P m acc -> P (acc + to_nat k)
-          | 0 => unit
-          end
-    with
-    | @F1 n =>
-      match n as n return first_n_branch_types_acc P n acc -> P (acc + 0) with
-      | 0 => fun p0 => ltac:(rewrite plus_0; refine p0)
-      | S n => fun '(m: p0, _) => ltac:(rewrite plus_0; refine p0)
-      end
-    | @FS n k =>
-      match n as n return forall k : Fin.t n, first_n_branch_types_acc P n acc -> P (acc + S (to_nat k)) with
-      | 0 => Fin.case0 _
-      | S n => fun k '(m: p, ps) => ltac:(rewrite plus_S; refine (get_branch _ _ _ _ ps))
-      end k
-    end.
-
-  Fixpoint first_n_branches {P : nat -> Prop} (backup_plan : forall k, P k) {n} :
-    first_n_branch_types P n -> forall k, P k :=
-    fun bs k =>
-    match of_nat_cert (S n) k with
-    | inl (existT _ k' eq) =>
-      match eq in _ = k return P k with
-      | eq_refl => get_branch 0 _ bs
-      end
-    | inr _ => backup_plan _
-    end
-  .
 
   Fixpoint curry_sort_apply {s : S.Sort} {m : MTele} : forall {f : ArgsOf m -> s} {a : ArgsOf m}, f a -> apply_sort (curry_sort s f) a :=
     match m as m return
@@ -281,6 +191,7 @@ Section SpNF.
     in
 
     branches <- (\nu args_param,
+        M.print "before branches_for_constrs";;
         branches_for_constrs
           val
           n
@@ -335,11 +246,16 @@ Section SpNF.
     M.ret (curry_val (s:=Propₛ) t)
   .
 
-  Definition build_normalizer (i : Type) :
-    M m:{ val : Mutual.Val &
-                forall n, MTele_sort (MTele_C Typeₛ Propₛ M (SpNFType val n))
-        } :=
-    '{| Mutual.val := val |} <- M.inspect_mind i; (* ignore everything else *)
+  Fixpoint val_to_sortP m :
+    forall T, @MTele_val Propₛ m T -> @MTele_sort Propₛ m T :=
+    match m as m return
+          forall T, @MTele_val Propₛ m T -> @MTele_sort Propₛ m T
+    with
+    | mBase => fun (T : Prop) (t : T) => t
+    | mTele F => fun T t x => val_to_sortP (F x) (T x) (t x)
+  end.
+
+  Definition build_normalizer_for (val : Mutual.Val) :=
     let tele := mTele (fun n => SpNFTele val n) in
     (* we are constructing a fixpoint of the following form:
        mfix F k P_k_1 .. P_k_pk I_k_1 .. I_k_ik (i : T_k P_k_1 .. P_k_pk I_k_1 .. I_k_ik) : M (m:{ i' : i' =m= i }) :=
@@ -366,6 +282,16 @@ Section SpNF.
     M.ret (mexistT
             (fun val => forall n, MTele_sort (MTele_C Typeₛ Propₛ M (SpNFType val n)))
             val
-            ltac:(refine (fun n => mfix_ n))
+            (val_to_sortP _ _ (mfix_))
           )
   .
+
+
+  Definition build_normalizer (i : Type) :
+    M m:{ val : Mutual.Val &
+                forall n, MTele_sort (MTele_C Typeₛ Propₛ M (SpNFType val n))
+        } :=
+    '{| Mutual.val := val |} <- M.inspect_mind i; (* ignore everything else *)
+    build_normalizer_for val.
+
+End SpNF.
