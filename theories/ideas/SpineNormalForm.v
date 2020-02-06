@@ -96,7 +96,10 @@ Section SpNF.
     SpNFType val n.
 
 
-  Definition nat_ind : Mutual.Nth := ltac:(mrun (M.inspect_mind nat)).
+  Set Printing All.
+  Set Printing Universes.
+  Mtac Do ((M.inspect_mind nat >>= @M.declare (dok_Definition) "nat_ind" true (Mutual.Nth)) >>= M.print_term).
+  Definition nat_ind : Mutual.Nth := ltac:(mrun (x <- M.inspect_mind nat; M.print_term x;; M.ret x)).
 
   Definition match_on_N {P: nat -> Prop} (p0 : P 0) (pS : forall n, P (S n)) (n : nat): Match.Val :=
     {|
