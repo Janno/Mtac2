@@ -87,19 +87,6 @@ Section SpNF.
     SpNFType val n.
 
 
-  Definition nat_ind : Mutual.Nth := ltac:(mrun (M.inspect_mind nat)).
-
-  Definition match_on_N {P: nat -> Prop} (p0 : P 0) (pS : forall n, P (S n)) (n : nat): Match.Val :=
-    {|
-      Match.mind_entry := nat_ind;
-      Match.param_args := tt;
-      Match.indices := tt;
-      Match.val := n;
-      Match.sort := Propₛ;
-      Match.return_predicate := P;
-      Match.branches := (m: p0; pS; tt)
-    |}.
-
   Fixpoint curry_sort_apply {s : S.Sort} {m : MTele} : forall {f : ArgsOf m -> s} {a : ArgsOf m}, f a -> apply_sort (curry_sort s f) a :=
     match m as m return
           forall (f : ArgsOf m -> s) (a : ArgsOf m), f a -> apply_sort (curry_sort s f) a
