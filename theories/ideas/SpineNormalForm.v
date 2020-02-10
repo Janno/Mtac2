@@ -178,7 +178,6 @@ Section SpNF.
     in
 
     branches <- (\nu args_param,
-        M.print "before branches_for_constrs";;
         branches_for_constrs
           val
           n
@@ -265,7 +264,6 @@ Section SpNF.
           (fun n => SpNFType val n)
           (fun F k => branches k F
           ) in
-    M.print_term mfix_;;
     M.ret (mexistT
             (fun val => forall n, MTele_sort (MTele_C Typeₛ Propₛ M (SpNFType val n)))
             val
@@ -282,3 +280,30 @@ Section SpNF.
     build_normalizer_for val.
 
 End SpNF.
+
+Set Printing All.
+Mtac Do (M.inspect_mind nat >>= fun '{|Mutual.val := val|} => M.print_term val).
+
+Let nat_val :=
+(Mutual.Build_Val
+   (Mutual.Build_Def false mBase
+      (@NEList.ne_sing (Inductive.Def mBase)
+         (Inductive.Build_Def mBase
+            (String (Ascii.Ascii false true true true false true true false)
+               (String (Ascii.Ascii true false false false false true true false)
+                  (String (Ascii.Ascii false false true false true true true false) EmptyString)))
+            (Inductive.Build_Sig mBase S.Type_sort mBase)))
+      (fun nat : Set =>
+       @mcons (@Constructor.Par.Def mBase mBase)
+         (Constructor.Par.Build_Def mBase mBase
+            (String (Ascii.Ascii true true true true false false true false) EmptyString) mBase tt)
+         (@mcons (@Constructor.Par.Def mBase mBase)
+            (Constructor.Par.Build_Def mBase mBase
+               (String (Ascii.Ascii true true false false true false true false) EmptyString)
+               (@mTele nat (fun _ : nat => mBase)) (fun _ : nat => tt)) (@mnil (@Constructor.Par.Def mBase mBase)))))
+   nat (@mpair nat (mprod (forall _ : nat, nat) unit) O (@mpair (forall _ : nat, nat) unit S tt))).
+
+
+Let x := Eval hnf in build_normalizer_for nat_val.
+
+Timeout 30 Mtac Do (build_normalizer_for nat_val >>= M.print_term).
