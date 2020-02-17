@@ -160,7 +160,7 @@ Module M2.
           [m:
              {| Constructor.Par.name := "c1";
                 Constructor.Par.tele := fun T k => [tele _ : T];
-                Constructor.Par.indices := (fun T k t => mexistT _ eq_refl tt);
+                Constructor.Par.indices := (fun T k t => mexistT _ eq_refl stt);
              |}
           ]
       ).
@@ -201,17 +201,19 @@ Program Definition testprog :=
           [m:
              {| Constructor.Par.name := "c1";
                 Constructor.Par.tele := fun T k => mTele (fun t : I2 T k => mBase);
-                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => tt))
+                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => _))
              |}
           ];
           [m:
              {| Constructor.Par.name := "c2";
                 Constructor.Par.tele := fun T k => mTele (fun t : I2 T k => mBase);
-                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => tt))
+                Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => _))
              |}
           ]
         )
     ).
+Next Obligation. refine stt. Defined.
+Next Obligation. refine stt. Defined.
 
 Mtac Do
      let t := dreduce ((@S.Fun), testprog) testprog in
@@ -247,7 +249,7 @@ Module M4.
             [m:
                {| Constructor.Par.name := "c1";
                   Constructor.Par.tele := fun T k => [tele _ : I2 T k eq_refl];
-                  Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 tt))))
+                  Constructor.Par.indices := fun T k => (S.Fun (sort:=Typeₛ) (fun t => (mexistT _ 1 (mexistT _ 2 stt))))
                |}
             ];
           mnil)

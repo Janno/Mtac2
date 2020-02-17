@@ -34,11 +34,11 @@ Section Funs.
     | ne_cons _ l => last l
     end.
 
-  Fixpoint nth (n : nat) (l : nelist A) : A :=
-    match n, l with
-    | 0, (ne_sing a | ne_cons a _) => a
-    | S n, ne_cons _ l => nth n l
-    | S _, ne_sing a => a
+  Fixpoint nth (n : nat) (l : nelist A) {struct l} : A :=
+    match l, n with
+    | ne_sing a, _ => a
+    | ne_cons a _, 0 => a
+    | ne_cons _ l, S n => nth n l
     end.
 
   Fixpoint to_list (l : nelist A) : mlist A :=
@@ -179,11 +179,10 @@ End Funs.
 
 Import ProdNotations.
 
-Fixpoint netuple_nth {A} {f : A -> Type} {l : nelist A} (n: nat) :
+Fixpoint netuple_nth {A} {f : A -> Type} {l : nelist A} (n: nat) {struct l} :
   reduce mprod (map f l) -> f (nth n l) :=
   match l as l, n as n return reduce mprod (map f l) -> f (nth n l) with
-  | ne_sing _, 0
-  | ne_sing _, S _ => fun x => x
+  | ne_sing _, _ => fun x => x
   (* We need to be very careful to not force the tuple in the two cases below.
      This function will eventually be called on tuples of unknown value and we
      need it to compute despite that. *)

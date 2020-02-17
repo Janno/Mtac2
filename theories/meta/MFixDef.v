@@ -22,7 +22,7 @@ Fixpoint curry {m : MTele} :
   forall {T : MTele_Ty m},
   (forall U : ArgsOf m, M (apply_sort T U)) -> MFA T :=
   match m with
-  | mBase => fun T F => F tt
+  | mBase => fun T F => F stt
   | mTele f => fun T F x => curry (fun U => F (mexistT _ x U))
   end.
 

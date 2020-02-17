@@ -129,15 +129,15 @@ Module Matches.
                        (Inductive.Build_Sig [tele ] Typeₛ [tele ])
                  ]
                  (fun nat : Set =>
-                    [m: Constructor.Par.Build_Def [tele ] [tele ] "O" [tele ] tt
-                    | Constructor.Par.Build_Def [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => tt)])) nat
+                    [m: Constructor.Par.Build_Def [tele ] [tele ] "O" [tele ] stt
+                    | Constructor.Par.Build_Def [tele ] [tele ] "S" [tele _ : nat ] (fun _ : nat => stt)])) nat
               (m:0; S; tt))
            0
            0
            0
         )
-        tt
-        tt
+        stt
+        stt
         1
         Typeₛ
         (fun _ : nat => bool)

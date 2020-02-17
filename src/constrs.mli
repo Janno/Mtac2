@@ -132,6 +132,11 @@ module CoqUnit : sig
   val mkTT : constr
 end
 
+module CoqSUnit : sig
+  val mkType : unit -> EConstr.t
+  val mkTT : unit -> EConstr.t
+end
+
 module CoqBool : sig
 
   val mkType : constr

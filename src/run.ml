@@ -1234,7 +1234,9 @@ let inspect_mind (env, sigma) t =
 
     (* let sigma, constrs = Evarsolve.refresh_universes None env sigma constrs in *)
 
+    Feedback.msg_debug (Printer.pr_econstr_env env sigma params);
     let sigma, inddef_ty = CoqIndDef.mkTy sigma env [|params|] in
+    Feedback.msg_debug (Printer.pr_econstr_env env sigma inddef_ty);
     let sigma, inds = CoqNEList.to_coq sigma env inddef_ty (fun sigma (_,_,_,ind_def,_) -> sigma, ind_def) descs in
     (* let sigma, inds = List.fold_right (fun (_, _, _, ind_def, _) (sigma, inds) ->
      *   let sigma, inds = CoqNEList.mkCons sigma env inddef_ty ind_def inds in
@@ -1247,7 +1249,9 @@ let inspect_mind (env, sigma) t =
      *   sigma, inds
      * ) descs (sigma, nil) in *)
 
-    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
+    let sigma, ty = CoqNEList.mkType sigma env inddef_ty in
+    let sigma = Typing.check env sigma inds ty in
+    Feedback.msg_debug (Printer.pr_econstr_env env sigma inds);
 
     let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
 
@@ -1620,8 +1624,17 @@ let build_match sigma env t =
       if n == 0 then
         List.rev acc
       else
-        let branch, pairs = CoqPair.from_coq (env, sigma) pairs in
-        go (n-1) pairs (branch :: acc)
+        (* let () = Feedback.msg_debug (Printer.pr_econstr_env env sigma pairs) in *)
+        let h, args = decompose_app sigma pairs in
+        try
+          let branch, pairs = CoqPair.from_coq (env, sigma) pairs in
+          go (n-1) pairs (branch :: acc)
+        with CoqPair.NotAPair ->
+          let () = Feedback.msg_debug (Pp.int (length args)) in
+          let () = Feedback.msg_debug (Pp.bool (Constr.isCast (EConstr.Unsafe.to_constr pairs))) in
+          (* let () = Feedback.msg_debug (Printer.pr_econstr_env env sigma h) in *)
+          (* let () = Feedback.msg_debug (Constr.debug_print (EConstr.Unsafe.to_constr pairs)) in *)
+          raise Not_found
     in
     go (Inductiveops.nconstructors env (mind, ind_i)) branches []
   in
@@ -1885,12 +1898,12 @@ and eval ctxt (vms : vm list) t =
     let ctx_st = context_of_stack stack in
 
 
-  let is_blocked = function
-    | FFlex (VarKey _) -> true
-    | (FRel i | FFlex (RelKey i))
-      when not (Environ.evaluable_rel i env) -> true
-    | _ -> false
-  in
+    let is_blocked = function
+      | FFlex (VarKey _) -> true
+      | (FRel i | FFlex (RelKey i))
+        when not (Environ.evaluable_rel i env) -> true
+      | _ -> false
+    in
 
     (* (match ctx_st with
      * | CBV -> Feedback.msg_debug (Pp.str "cbv")
@@ -1966,9 +1979,9 @@ and eval ctxt (vms : vm list) t =
         begin
           if !debug_ex then
             (let open Pp in
-            Feedback.msg_debug (
-              Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
-            )
+             Feedback.msg_debug (
+               Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
+             )
             );
           efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
         end
@@ -2363,6 +2376,11 @@ and primitive ctxt vms mh reduced_term =
            efail (E.mkAlreadyDeclared sigma env name)
        | exception Type_errors.TypeError(env, Type_errors.UnboundVar v) ->
            efail (E.mkTypeErrorUnboundVar sigma env (mkVar v))
+       | exception exn ->
+           let bt = Printexc.get_raw_backtrace () in
+           Printexc.raise_with_backtrace exn bt
+           (* let exn, info = Exninfo.capture exn in
+            * Exninfo.iraise  (exn, info) *)
       )
 
   | MConstr (Mdeclare_implicits, (t, reference, impls)) ->
@@ -2559,8 +2577,20 @@ and primitive ctxt vms mh reduced_term =
         | None -> failwith "Not an inductive" (* TODO: proper exception *)
       end
   | MConstr (Mbuild_match, (m)) ->
-      let sigma, types = build_match sigma env (to_econstr m) in
-      ereturn sigma types
+      begin
+        match build_match sigma env (to_econstr m) with
+        | (sigma, types) ->
+            Feedback.msg_debug (Pp.str "test");
+            ereturn sigma types
+        | exception Not_found ->
+            let sigma, e = E.mkReductionFailure sigma env (to_econstr m) in
+            efail (sigma, e)
+        | exception exn ->
+            let bt = Printexc.get_raw_backtrace () in
+            Printexc.raise_with_backtrace exn bt
+            (* let exn, info = Exninfo.capture exn in
+             * Exninfo.iraise  (exn, info) *)
+      end
 
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function
@@ -2723,10 +2753,11 @@ let run (env0, sigma) ty t : data =
       assert (List.is_empty stack);
       let v = multi_subst_inv sigma' subs (to_econstr v) in
       let sigma' = try Typing.check env sigma' v ty with
-        | e ->
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma v);
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
-            raise e
+        | exn ->
+            let bt = Printexc.get_raw_backtrace () in
+            Printexc.raise_with_backtrace exn bt
+            (* let exn, info = Exninfo.capture exn in
+             * Exninfo.iraise (exn, info) *)
       in
       (* let sigma', _ = Typing.type_of env0 sigma' v in *)
       Val (env, (sigma', v))

@@ -79,7 +79,7 @@ Module Inductive.
     match sigs as sigs return
           forall (is : Vals_Mut sigs), ArgsOf (Tele sigs)
     with
-    | ne_sing sig => fun i => mexistT _ i tt
+    | ne_sing sig => fun i => mexistT _ i stt
     | ne_cons sig sigs => fun '(m: i, is) => mexistT _ i (Args is)
     end.
 
