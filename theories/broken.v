@@ -6,7 +6,6 @@ Local Close Scope tactic.
 Set Universe Polymorphism.
 
 
-Definition equate_sig' {A} {v : A} (t : M { v' : A & v' = v }) := v.
 Fail Definition broken_backtrace :=
       fix go (t : unit) {struct t} : M {t' & t' = t} :=
           \nu x,
