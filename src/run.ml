@@ -921,24 +921,8 @@ let is_nu env sigma x nus =
 exception UnsupportedDefinitionObjectKind
 exception CanonicalStructureMayNotBeOpaque
 
-let run_declare_def env sigma kind name opaque ty bod =
+let run_declare_def env sigma kind name opaque ty body =
   let open Decls in
-  let vernac_definition_hook poly = function
-    | Coercion -> Some (ComCoercion.add_coercion_hook ~poly)
-    | CanonicalStructure ->
-        if opaque then raise CanonicalStructureMayNotBeOpaque else
-          Some (DeclareDef.Hook.(make (fun { S.dref; _ } -> Canonical.declare_canonical_structure dref)))
-    | SubClass -> Some (ComCoercion.add_subclass_hook ~poly)
-    (* | Instance -> Lemmas.mk_hook (fun local gr -> *)
-    (*   let local = match local with | Global -> false | Local -> true | _ -> raise DischargeLocality in *)
-    (*   let () = Typeclasses.declare_instance None local gr *)
-    (*   in () *)
-    (* ) *)
-    | Instance
-    | IdentityCoercion | Scheme | StructureComponent | Fixpoint ->
-        raise UnsupportedDefinitionObjectKind
-    | _ -> None
-  in
   (* copied from coq 8.6.1 Decl_kinds *)
   let kinds = [|
     Definition
@@ -954,25 +938,50 @@ let run_declare_def env sigma kind name opaque ty bod =
   ; Instance
   ; Method|]
   in
-  let univs = EConstr.universes_of_constr sigma bod in
-  let univs = Univ.LSet.union univs (EConstr.universes_of_constr sigma ty) in
 
-  let ty = Unsafe.to_constr ty in
-  let bod = Unsafe.to_constr bod in
+  let kind_pos = get_constructor_pos sigma kind in
+  let kind = kinds.(kind_pos) in
+
+  let poly = false in
+
+  let vernac_definition_hook = match kind with
+    | Coercion -> Some (ComCoercion.add_coercion_hook ~poly)
+    | CanonicalStructure ->
+        if opaque then raise CanonicalStructureMayNotBeOpaque else
+          Some (DeclareDef.Hook.(make (fun { S.dref; _ } -> Canonical.declare_canonical_structure dref)))
+    | SubClass -> Some (ComCoercion.add_subclass_hook ~poly)
+    (* | Instance -> Lemmas.mk_hook (fun local gr -> *)
+    (*   let local = match local with | Global -> false | Local -> true | _ -> raise DischargeLocality in *)
+    (*   let () = Typeclasses.declare_instance None local gr *)
+    (*   in () *)
+    (* ) *)
+    | Instance
+    | IdentityCoercion | Scheme | StructureComponent | Fixpoint ->
+        raise UnsupportedDefinitionObjectKind
+    | _ -> None
+  in
+  let hook = vernac_definition_hook in
+
+  let kind = Decls.IsDefinition kind in
+
+
+  let name = CoqString.from_coq (env, sigma) name in
+  let id = Names.Id.of_string name in
+
+  let udecl = UState.default_univ_decl in
+  let sigma', ce = DeclareDef.prepare_definition ~allow_evars:false ~opaque ~poly sigma udecl ~types:(Some ty) ~body in
+
+  let univs = EConstr.universes_of_constr sigma' body in
+  let univs = Univ.LSet.union univs (EConstr.universes_of_constr sigma' ty) in
 
   let sigma' = Evd.restrict_universe_context sigma univs in
   let uctx = Evd.evar_universe_context sigma' in
 
-  let ctx = Evd.univ_entry ~poly:false sigma' in
-  let kind_pos = get_constructor_pos sigma kind in
-  let kind = kinds.(kind_pos) in
-  let name = CoqString.from_coq (env, sigma) name in
-  let id = Names.Id.of_string name in
-  let ce = Declare.definition_entry ~opaque ~types:ty ~univs:ctx bod in
-  let kn = Declare.declare_constant ~name:id ~kind:(Decls.IsDefinition kind) (Declare.DefinitionEntry ce) in
-  let dref = GlobRef.ConstRef kn in
-  let () = DeclareDef.Hook.call ?hook:(vernac_definition_hook false kind)
-             { DeclareDef.Hook.S.uctx; obls=[]; scope=DeclareDef.Global Declare.ImportDefaultBehavior; dref }  in
+  let ubinders = Evd.universe_binders sigma' in
+  let hook_data = Option.map (fun hook -> hook, uctx, []) hook in
+  let scope = DeclareDef.Global Declare.ImportDefaultBehavior in
+  let dref = DeclareDef.declare_definition ~name:id ~scope ~kind ubinders ce [] ?hook_data in
+
   let c = UnivGen.constr_of_monomorphic_global dref in
   let env = Global.env () in
   (* Feedback.msg_notice *)
@@ -1234,7 +1243,9 @@ let inspect_mind (env, sigma) t =
 
     (* let sigma, constrs = Evarsolve.refresh_universes None env sigma constrs in *)
 
+    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma params); *)
     let sigma, inddef_ty = CoqIndDef.mkTy sigma env [|params|] in
+    (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inddef_ty); *)
     let sigma, inds = CoqNEList.to_coq sigma env inddef_ty (fun sigma (_,_,_,ind_def,_) -> sigma, ind_def) descs in
     (* let sigma, inds = List.fold_right (fun (_, _, _, ind_def, _) (sigma, inds) ->
      *   let sigma, inds = CoqNEList.mkCons sigma env inddef_ty ind_def inds in
@@ -1247,6 +1258,8 @@ let inspect_mind (env, sigma) t =
      *   sigma, inds
      * ) descs (sigma, nil) in *)
 
+    let sigma, ty = CoqNEList.mkType sigma env inddef_ty in
+    let sigma = Typing.check env sigma inds ty in
     (* Feedback.msg_debug (Printer.pr_econstr_env env sigma inds); *)
 
     let poly = match mbody.mind_universes with | Monomorphic _ -> false | Polymorphic _ -> true in
@@ -1309,6 +1322,9 @@ let inspect_mind (env, sigma) t =
     let sigma, mind_entry = CoqMindEntry.to_coq sigma env [|mind; CoqNat.to_coq ind_i; CoqNat.to_coq params_given; CoqNat.to_coq indices_given |] in
 
     let sigma, mind_entry = Evarsolve.refresh_universes None env sigma mind_entry in
+    (* refresh universes seems to be insufficient. perform full typechecking for now. *)
+    let sigma, mind_entry_ty = CoqMindEntry.mkTy sigma env [||] in
+    let sigma = Typing.check env sigma mind_entry mind_entry_ty in
     Some (sigma, mind_entry)
 
 
@@ -1620,8 +1636,17 @@ let build_match sigma env t =
       if n == 0 then
         List.rev acc
       else
-        let branch, pairs = CoqPair.from_coq (env, sigma) pairs in
-        go (n-1) pairs (branch :: acc)
+        (* let () = Feedback.msg_debug (Printer.pr_econstr_env env sigma pairs) in *)
+        (* let h, args = decompose_app sigma pairs in *)
+        try
+          let branch, pairs = CoqPair.from_coq (env, sigma) pairs in
+          go (n-1) pairs (branch :: acc)
+        with CoqPair.NotAPair ->
+          (* let () = Feedback.msg_debug (Pp.int (length args)) in
+           * let () = Feedback.msg_debug (Pp.bool (Constr.isCast (EConstr.Unsafe.to_constr pairs))) in *)
+          (* let () = Feedback.msg_debug (Printer.pr_econstr_env env sigma h) in *)
+          (* let () = Feedback.msg_debug (Constr.debug_print (EConstr.Unsafe.to_constr pairs)) in *)
+          raise Not_found
     in
     go (Inductiveops.nconstructors env (mind, ind_i)) branches []
   in
@@ -1885,12 +1910,12 @@ and eval ctxt (vms : vm list) t =
     let ctx_st = context_of_stack stack in
 
 
-  let is_blocked = function
-    | FFlex (VarKey _) -> true
-    | (FRel i | FFlex (RelKey i))
-      when not (Environ.evaluable_rel i env) -> true
-    | _ -> false
-  in
+    let is_blocked = function
+      | FFlex (VarKey _) -> true
+      | (FRel i | FFlex (RelKey i))
+        when not (Environ.evaluable_rel i env) -> true
+      | _ -> false
+    in
 
     (* (match ctx_st with
      * | CBV -> Feedback.msg_debug (Pp.str "cbv")
@@ -1966,9 +1991,9 @@ and eval ctxt (vms : vm list) t =
         begin
           if !debug_ex then
             (let open Pp in
-            Feedback.msg_debug (
-              Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
-            )
+             Feedback.msg_debug (
+               Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
+             )
             );
           efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
         end
@@ -2363,6 +2388,11 @@ and primitive ctxt vms mh reduced_term =
            efail (E.mkAlreadyDeclared sigma env name)
        | exception Type_errors.TypeError(env, Type_errors.UnboundVar v) ->
            efail (E.mkTypeErrorUnboundVar sigma env (mkVar v))
+       | exception exn ->
+           let bt = Printexc.get_raw_backtrace () in
+           Printexc.raise_with_backtrace exn bt
+           (* let exn, info = Exninfo.capture exn in
+            * Exninfo.iraise  (exn, info) *)
       )
 
   | MConstr (Mdeclare_implicits, (t, reference, impls)) ->
@@ -2554,10 +2584,30 @@ and primitive ctxt vms mh reduced_term =
       let hint_priority = Option.map (CoqN.from_coq (env, sigma)) prio in
       Classes.existing_instance global qualid (Some {hint_priority; hint_pattern= None});
       ereturn sigma (CoqUnit.mkTT)
-  | MConstr (Minspect_mind, (_, ind)) ->
+  | MConstr (Minspect_mind, (ind_ty, ind)) ->
       begin
         match inspect_mind (env, sigma) (to_econstr ind) with
         | Some (sigma, desc) ->
+            let sigma, ty =
+              Typing.type_of ~refresh:true env sigma
+                (EConstr.mkApp (to_econstr hf, [|to_econstr ind_ty; to_econstr ind|])) in
+            let _, tys = EConstr.decompose_app sigma ty in
+            let ty = hd tys in
+            (* let univs = EConstr.universes_of_constr sigma desc in
+             * let univs = Univ.LSet.union univs (EConstr.universes_of_constr sigma ty) in
+             * let sigma' = Evd.restrict_universe_context sigma univs in
+             * let universes = Evd.universes sigma' in
+             * let csts = UGraph.constraints_for ~kept:univs universes in
+             * Feedback.msg_debug (
+             * 
+             * 
+             *   prlist_with_sep (fun () -> str "," ++ spc())
+             *     (fun (u,d,v) -> hov 0 (UnivNames.pr_with_global_universes u ++ Univ.pr_constraint_type d ++ UnivNames.pr_with_global_universes v))
+             *     (Univ.Constraint.elements csts)
+             * 
+             * 
+             * ); *)
+            let sigma = Typing.check env sigma desc ty in
             ereturn sigma desc
         | None -> failwith "Not an inductive" (* TODO: proper exception *)
       end
@@ -2569,8 +2619,19 @@ and primitive ctxt vms mh reduced_term =
         | None -> failwith "Not an inductive" (* TODO: proper exception *)
       end
   | MConstr (Mbuild_match, (m)) ->
-      let sigma, types = build_match sigma env (to_econstr m) in
-      ereturn sigma types
+      begin
+        match build_match sigma env (to_econstr m) with
+        | (sigma, types) ->
+            ereturn sigma types
+        | exception Not_found ->
+            let sigma, e = E.mkReductionFailure sigma env (to_econstr m) in
+            efail (sigma, e)
+        | exception exn ->
+            let bt = Printexc.get_raw_backtrace () in
+            Printexc.raise_with_backtrace exn bt
+            (* let exn, info = Exninfo.capture exn in
+             * Exninfo.iraise  (exn, info) *)
+      end
 
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function
@@ -2733,10 +2794,11 @@ let run (env0, sigma) ty t : data =
       assert (List.is_empty stack);
       let v = multi_subst_inv sigma' subs (to_econstr v) in
       let sigma' = try Typing.check env sigma' v ty with
-        | e ->
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma v);
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
-            raise e
+        | exn ->
+            let bt = Printexc.get_raw_backtrace () in
+            Printexc.raise_with_backtrace exn bt
+            (* let exn, info = Exninfo.capture exn in
+             * Exninfo.iraise (exn, info) *)
       in
       (* let sigma', _ = Typing.type_of env0 sigma' v in *)
       Val (env, (sigma', v))

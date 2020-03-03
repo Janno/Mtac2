@@ -478,6 +478,17 @@ module CoqUnit = struct
   let mkTT = build ttBuilder
 end
 
+module CoqSUnit = struct
+  open ConstrBuilder
+
+  let unitBuilder = from_string "Mtac2.intf.MTele.sunit"
+  let ttBuilder = from_string "Mtac2.intf.MTele.stt"
+
+  (* delay evaluation because [MTele] is not available at plugin load time *)
+  let mkType () = build unitBuilder
+  let mkTT () = build ttBuilder
+end
+
 module MCTactics = struct
   open UConstrBuilder
 
@@ -610,7 +621,7 @@ module CoqArgsOf = struct
         let predicate = mkLambda (name, ty, argsof_ty) in
         let sigma, argsof = CoqSigT.to_coq sigma env [|ty; predicate; head; acc|] in
         sigma, args, argsof
-    ) (sigma, args, CoqUnit.mkTT) tele
+    ) (sigma, args, CoqSUnit.mkTT ()) tele
     in
     sigma, argsof, args
 end

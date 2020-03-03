@@ -1,4 +1,4 @@
-From Mtac2 Require Import Sorts Specif.
+From Mtac2 Require Import Sorts Logic Specif.
 Import Sorts.S.
 
 Set Universe Polymorphism.
@@ -86,9 +86,14 @@ Definition MTele_valP {n} : MTele_Pr n -> Prop :=
 
 
 (** Currying and Uncurrying for Telescope Types and Functions *)
+Monomorphic Record sunit : SProp := stt {}.
+Definition suPI {T} (f : sunit -> T) (u1 u2 : sunit) : meq (f u1) (f u2) := meq_refl.
+Definition suTr@{t T} {f : sunit -> Type@{t}} {u1 u2 : sunit} : f u1 -> f u2 :=
+  match suPI@{T} f _ _ in _ =m= X return f u1 -> X with | meq_refl => fun x => x end.
+
 Fixpoint ArgsOf@{M} (m : MTele@{M}) : Type@{M} :=
   match m with
-  | mBase => unit
+  | mBase => sunit
   | mTele f => msigT (fun x => ArgsOf (f x))
   end.
 
@@ -115,7 +120,7 @@ Fixpoint apply_val@{M+} {s : Sort} {m : MTele@{M}} :
 
 Fixpoint curry_const@{M i o+} {s : Sort} {m : MTele@{M}} {T : stype_of@{i o} s} : (ArgsOf m -> T) -> MTele_Const@{M _ _} T m :=
   match m with
-  | mBase => fun f => f tt
+  | mBase => fun f => f stt
   | mTele F => fun f => Fun (fun x => curry_const (fun a => f (mexistT (fun x => ArgsOf _) x a)))
   end.
 
@@ -125,7 +130,7 @@ Definition curry_sort@{M i j o} (s : Sort) {m : MTele@{M}} : _ -> MTele_Sort@{M 
 Fixpoint curry_val {s : Sort} {m : MTele} :
   forall {T : MTele_Sort s m}, (forall a: ArgsOf m, apply_sort T a) -> MTele_val T :=
   match m with
-  | mBase => fun T f => f tt
+  | mBase => fun T f => f stt
   | mTele F => fun T f => Fun (fun x => curry_val (fun a => f (mexistT _ _ _)))
   end.
 
@@ -134,7 +139,8 @@ Fixpoint apply_curry_sort@{M i j o} {s} {m : MTele@{M}} :
   match m as m return
         forall {f : ArgsOf m -> _} {a : ArgsOf m}, apply_sort (curry_sort@{M i j o} s f) a -> selem_of@{i j} (f a)
   with
-  | mBase => fun f 'tt t => t
+  | mBase => fun (f : sunit -> stype_of _) a t =>
+               suTr@{i j} (f:=fun a => selem_of (f a)) t
   | mTele F => fun f '(mexistT _ x a) t => @apply_curry_sort _ (F x) (fun args => f (mexistT _ x args)) _ t
   end.
 
@@ -143,7 +149,7 @@ Fixpoint apply_curry_sort_inv@{M i j o} {s} {m : MTele@{M}} :
   match m as m return
         forall {f : ArgsOf m -> _} {a : ArgsOf m}, selem_of@{i j} (f a) -> apply_sort (curry_sort@{M i j o} s f) a
   with
-  | mBase => fun f 'tt t => t
+  | mBase => fun f a t => suTr@{i j} (f:=fun a => (selem_of (f a))) t
   | mTele F => fun f '(mexistT _ x a) t => @apply_curry_sort_inv _ (F x) (fun args => f (mexistT _ x args)) _ t
   end.
 
@@ -208,7 +214,7 @@ Fixpoint apply_ConstMap {si so : Sort} {n : MTele} {T : si} {G : T -> so} :
 Fixpoint curry_ConstMap {si so : Sort} {n : MTele} {T : si} {G : T -> so} :
   forall {C : MTele_Const T n}, (forall a, G (apply_const C a)) -> MTele_val (MTele_ConstMap so G C) :=
   match n with
-  | mBase => fun T f => f tt
+  | mBase => fun T f => f stt
   | mTele F => fun T f => Fun (fun x => curry_ConstMap (fun a => f (mexistT _ _ _)))
   end.
 

@@ -51,6 +51,16 @@ type vm = Code of CClosure.fconstr
 
 val run' : ctxt -> vm list -> data_stack
 
+type abs = AbsProd | AbsFun | AbsLet | AbsFix
+val abs :
+  vm list ->
+  abs ->
+  ctxt ->
+  CClosure.fconstr ->
+  CClosure.fconstr ->
+  CClosure.fconstr ->
+  CClosure.fconstr -> int -> etypes -> data_stack
+
 val multi_subst : evar_map -> (int * constr) list -> constr -> constr
 
 module Hypotheses : sig
