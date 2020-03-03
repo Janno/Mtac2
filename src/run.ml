@@ -2389,10 +2389,10 @@ and primitive ctxt vms mh reduced_term =
        | exception Type_errors.TypeError(env, Type_errors.UnboundVar v) ->
            efail (E.mkTypeErrorUnboundVar sigma env (mkVar v))
        | exception exn ->
-           let bt = Printexc.get_raw_backtrace () in
-           Printexc.raise_with_backtrace exn bt
-           (* let exn, info = Exninfo.capture exn in
-            * Exninfo.iraise  (exn, info) *)
+           (* let bt = Printexc.get_raw_backtrace () in
+            * Printexc.raise_with_backtrace exn bt *)
+           let exn, info = Exninfo.capture exn in
+           Exninfo.iraise  (exn, info)
       )
 
   | MConstr (Mdeclare_implicits, (t, reference, impls)) ->
@@ -2627,10 +2627,10 @@ and primitive ctxt vms mh reduced_term =
             let sigma, e = E.mkReductionFailure sigma env (to_econstr m) in
             efail (sigma, e)
         | exception exn ->
-            let bt = Printexc.get_raw_backtrace () in
-            Printexc.raise_with_backtrace exn bt
-            (* let exn, info = Exninfo.capture exn in
-             * Exninfo.iraise  (exn, info) *)
+            (* let bt = Printexc.get_raw_backtrace () in
+             * Printexc.raise_with_backtrace exn bt *)
+            let exn, info = Exninfo.capture exn in
+            Exninfo.iraise  (exn, info)
       end
 
 (* h is the mfix operator, a is an array of types of the arguments, b is the
@@ -2795,10 +2795,10 @@ let run (env0, sigma) ty t : data =
       let v = multi_subst_inv sigma' subs (to_econstr v) in
       let sigma' = try Typing.check env sigma' v ty with
         | exn ->
-            let bt = Printexc.get_raw_backtrace () in
-            Printexc.raise_with_backtrace exn bt
-            (* let exn, info = Exninfo.capture exn in
-             * Exninfo.iraise (exn, info) *)
+            (* let bt = Printexc.get_raw_backtrace () in
+             * Printexc.raise_with_backtrace exn bt *)
+            let exn, info = Exninfo.capture exn in
+            Exninfo.iraise (exn, info)
       in
       (* let sigma', _ = Typing.type_of env0 sigma' v in *)
       Val (env, (sigma', v))
