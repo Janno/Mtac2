@@ -2254,6 +2254,52 @@ and primitive ctxt vms mh reduced_term =
             | Evarsolve.UnifFailure _ ->
                 (run'[@tailcall]) {ctxt with sigma = sigma} (Code fail :: vms)
       end
+  | MConstr (Mrefresh_prim, (_, template)) ->
+      let template_e = to_econstr template in
+      begin
+        match destRef sigma template_e with
+        | exception DestKO ->
+            Feedback.msg_warning (let open Pp in str "Trying to refreshing something that is not a reference:" ++ Printer.pr_econstr_env env sigma template_e);
+            (run'[@tailcall]) ctxt (Ret template :: vms)
+        | (r, univs) ->
+            let sigma, fresh = EConstr.fresh_global env sigma r in
+            let _, univs_fresh = EConstr.destRef sigma fresh in
+            let univs = EConstr.EInstance.kind sigma univs in
+            let univs = Array.to_list (Univ.Instance.to_array univs) in
+
+            let univs_fresh = EConstr.EInstance.kind sigma univs_fresh in
+            let univs_fresh = Univ.Instance.to_array univs_fresh in
+            (* (\* I can't believe I am implementing binary search.. *\)
+             * let binsearch arr x =
+             *   let rec go l r =
+             *     if r <= l then None
+             *     else
+             *       let mid = l + (r - l) / 2 in
+             *       match Univ.Level.compare x arr.(mid) with
+             *       | 0 -> Some mid
+             *       | -1 -> go mid r
+             *       | _ -> go l mid
+             *   in
+             *   go *)
+            let ctx_set = Evd.universe_context_set sigma in
+            let constraints = Univ.ContextSet.constraints ctx_set in
+            let constraints_of = Univ.Constraint.fold (
+              fun (l, c, r) acc ->
+                match
+                  CList.safe_index (Univ.Level.equal) l univs,
+                  CList.safe_index (Univ.Level.equal) r univs
+                with
+                | None, None -> acc
+                | Some i, None ->
+                    Univ.Constraint.add (univs_fresh.(i), c, r) acc
+                | None, Some j ->
+                    Univ.Constraint.add (l, c, univs_fresh.(j)) acc
+                | Some i, Some j ->
+                    Univ.Constraint.add (univs_fresh.(i), c, univs_fresh.(j)) acc
+            ) constraints (Univ.Constraint.empty) in
+            let sigma = Evd.add_constraints sigma constraints_of in
+            (run'[@tailcall]) {ctxt with sigma} (Ret (of_econstr fresh) :: vms)
+      end
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function
    and x its arguments. *)

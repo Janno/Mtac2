@@ -46,6 +46,7 @@ theories/intf/Dyn.v
 theories/intf/Name.v
 theories/intf/Exceptions.v
 theories/intf/Reduction.v
+theories/intf/Refresh.v
 theories/intf/DeclarationDefs.v
 theories/intf/Unification.v
 theories/intf/Case.v

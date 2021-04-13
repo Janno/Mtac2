@@ -87,6 +87,7 @@ type 'a mconstr_head =
   | Mdeclare_mind : (arg_any * arg_any * arg_any) mconstr_head
   | Mexisting_instance : (arg_any * arg_any * arg_bool) mconstr_head
   | Minstantiate_evar : (arg_type * arg_type * arg_any * arg_any * arg_fun * arg_fun) mconstr_head
+  | Mrefresh_prim : (arg_type * arg_any) mconstr_head
 and mhead = | MHead : 'a mconstr_head -> mhead
 and mconstr = | MConstr : 'a mconstr_head * 'a -> mconstr
 
@@ -151,6 +152,7 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Mdeclare_mind -> 3
   | Mexisting_instance -> 3
   | Minstantiate_evar -> 6
+  | Mrefresh_prim -> 2
 
 
 let _mkconstr s = lazy (let (_, c) = mkUConstr ("M.M." ^ s) Evd.empty (Global.env ()) in c)
@@ -394,6 +396,9 @@ let isexisting_instance = isconstant name_existing_instance
 let name_instantiate_evar = constant_of_string "instantiate_evar"
 let isinstantiate_evar = isconstant name_instantiate_evar
 
+let name_refresh_prim = constant_of_string "refresh_prim"
+let isrefresh_prim = isconstant name_refresh_prim
+
 
 let mconstr_head_of h =
   match h with
@@ -515,6 +520,8 @@ let mconstr_head_of h =
       MHead Mexisting_instance
   | _ when isinstantiate_evar h ->
       MHead Minstantiate_evar
+  | _ when isrefresh_prim h ->
+      MHead Mrefresh_prim
   | _ -> raise Not_found
 
 let mconstr_head_opt h =
@@ -668,3 +675,5 @@ let mconstr_of (type a) args (h : a mconstr_head) =
       MConstr (Mexisting_instance, (args 0, args 1, args 2))
   | Minstantiate_evar ->
       MConstr (Minstantiate_evar, (args 0, args 1, args 2, args 3, args 4, args 5))
+  | Mrefresh_prim ->
+      MConstr (Mrefresh_prim, (args 0, args 1))
