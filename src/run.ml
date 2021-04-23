@@ -2262,32 +2262,42 @@ and primitive ctxt vms mh reduced_term =
             Feedback.msg_warning (let open Pp in str "Trying to refreshing something that is not a reference:" ++ Printer.pr_econstr_env env sigma template_e);
             (run'[@tailcall]) ctxt (Ret template :: vms)
         | (r, univs) ->
-            let sigma, fresh = EConstr.fresh_global env sigma r in
-            let _, univs_fresh = EConstr.destRef sigma fresh in
             let univs = EConstr.EInstance.kind sigma univs in
-            let univs = Array.to_list (Univ.Instance.to_array univs) in
+            let univs = Univ.Instance.to_array univs in
+
+            let (fresh_r, fresh_ctx) = UnivGen.fresh_global_instance env r in
+            let (_, univs_fresh) = EConstr.destRef sigma (EConstr.of_constr fresh_r) in
 
             let univs_fresh = EConstr.EInstance.kind sigma univs_fresh in
             let univs_fresh = Univ.Instance.to_array univs_fresh in
-            (* (\* I can't believe I am implementing binary search.. *\)
-             * let binsearch arr x =
-             *   let rec go l r =
-             *     if r <= l then None
-             *     else
-             *       let mid = l + (r - l) / 2 in
-             *       match Univ.Level.compare x arr.(mid) with
-             *       | 0 -> Some mid
-             *       | -1 -> go mid r
-             *       | _ -> go l mid
-             *   in
-             *   go *)
+            let find_both arr x y =
+              let rec find_one z i =
+                if i >= Array.length arr then None
+                else
+                  match Univ.Level.equal arr.(i) z with
+                  | true -> Some i
+                  | false -> find_one z (i+1)
+              in
+              let rec find_both i =
+                if i >= Array.length arr then (None, None)
+                else
+                  match
+                    Univ.Level.equal arr.(i) x,
+                    Univ.Level.equal arr.(i) y
+                  with
+                  | true, true -> (Some i, Some i)
+                  | false, true -> (find_one x (i+1), Some i)
+                  | true, false -> (Some i, find_one y (i+1))
+                  | false, false -> find_both (i+1)
+              in
+              find_both 0
+            in
             let ctx_set = Evd.universe_context_set sigma in
             let constraints = Univ.ContextSet.constraints ctx_set in
             let constraints_of = Univ.Constraint.fold (
               fun (l, c, r) acc ->
                 match
-                  CList.safe_index (Univ.Level.equal) l univs,
-                  CList.safe_index (Univ.Level.equal) r univs
+                  find_both univs l r
                 with
                 | None, None -> acc
                 | Some i, None ->
@@ -2297,8 +2307,9 @@ and primitive ctxt vms mh reduced_term =
                 | Some i, Some j ->
                     Univ.Constraint.add (univs_fresh.(i), c, univs_fresh.(j)) acc
             ) constraints (Univ.Constraint.empty) in
-            let sigma = Evd.add_constraints sigma constraints_of in
-            (run'[@tailcall]) {ctxt with sigma} (Ret (of_econstr fresh) :: vms)
+            let ctx_set = Univ.ContextSet.add_constraints constraints_of fresh_ctx in
+            let sigma = Evd.merge_context_set univ_flexible sigma ctx_set in
+            (run'[@tailcall]) {ctxt with sigma} (Ret (of_econstr (EConstr.of_constr fresh_r)) :: vms)
       end
 (* h is the mfix operator, a is an array of types of the arguments, b is the
    return type of the fixpoint, f is the function

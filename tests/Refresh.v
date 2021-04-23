@@ -322,8 +322,6 @@ Module Soundness.
      - recurse in a position of type [M T] where [T] is constrained by UI_1 (i.e. it cannot be larger than a certain universe)
      - copy initial universe instance UI_0, call the result UI_2
      - recurse at UI_2, ignoring the constraints on the current context.
-
-
        refresh@{R} (ref, body)@{U_0}
        (ref_f, body_f)@{U_1} <- refresh_prim  (ref, body)@{U} ->
        -> body@{U_1} (refresh@{R} (ref, body)@{U_0})
