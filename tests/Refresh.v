@@ -42,14 +42,18 @@ Monomorphic Constraint a < b.
 Set Unicoq Debug.
 Fail Mtac Do inhabit (SpecificProp@{a} * SpecificProp@{b} * SpecificProp@{c}) >>= M.print_term.
 
-Definition result :=
+
+Definition result@{x y z} :=
   ltac:(mrun (inhabit (SpecificProp@{x} * SpecificProp@{y} * SpecificProp@{z}))).
 Print result.
+Fail Monomorphic Constraint result.x < result.y.
 
 
-Definition resultP :=
+
+Definition resultP@{x y z} :=
   ltac:(mrun (inhabitP (SpecificProp@{x} * SpecificProp@{y} * SpecificProp@{z}))).
 Print resultP.
+Fail Monomorphic Constraint resultP.x < resultP.y.
 
 Definition inhabit'@{u+} (T: Type) : M (Inhabited T) :=
 let value_of :=
@@ -62,11 +66,12 @@ in
   v <- value_of T;
   M.ret (inhabits T v).
 
-Monomorphic Universes x' y' z'.
 Unset Unicoq Debug.
-Definition result' :=
-  ltac:(mrun (inhabit' (SpecificProp@{x'} * SpecificProp@{y'} * SpecificProp@{z'}))).
+Definition result'@{x y z} :=
+  ltac:(mrun (inhabit' (SpecificProp@{x} * SpecificProp@{y} * SpecificProp@{z}))).
 Print result'.
+
+Fail Monomorphic Constraint result'.x < result'.y.
 
 Polymorphic Definition value_of@{u+} :=
   mfix1 go (T: Type) : M T :=
@@ -107,8 +112,10 @@ Module Attempt1.
 
   Polymorphic Definition inhabit_fixed T := value_of_fixed T >>= fun x => M.ret (inhabits T x).
 
-  Definition result_fixed :=
-    ltac:(mrun (inhabit_fixed (SpecificProp@{x'} * SpecificProp@{y'} * SpecificProp@{z'}))).
+  Definition result_fixed@{x y z} :=
+    ltac:(mrun (inhabit_fixed (SpecificProp@{x} * SpecificProp@{y} * SpecificProp@{z}))).
+  (* Fails because we refresh only after tainting the initial universe set *)
+  Fail Monomorphic Constraint result_fixed.x < result_fixed.y.
 End Attempt1.
 
 
@@ -126,8 +133,10 @@ Module Attempt2.
   Definition inhabit_fixed T := value_of_fixed T >>= fun x => M.ret (inhabits T x).
 
   #[local] Set Unicoq Trace.
-  Definition result_fixed :=
-    ltac:(mrun (inhabit_fixed (SpecificProp@{x'} * SpecificProp@{y'} * SpecificProp@{z'}))).
+  Definition result_fixed@{x y z} :=
+    ltac:(mrun (inhabit_fixed (SpecificProp@{x} * SpecificProp@{y} * SpecificProp@{z}))).
+
+  Fail Fail Monomorphic Constraint result_fixed.x < result_fixed.y.
 End Attempt2.
 
 
@@ -143,7 +152,7 @@ Arguments product : clear implicits.
 Module T.
 
 
-Polymorphic Definition refresh_init
+Polymorphic Definition refresh1
     {A} {B: A -> Type} (t : Refresh (forall (a : A), M (B a))) : forall a, M (B a) :=
   mfix1 go (a : A) : M (B a) :=
     fresh_instance <- M.refresh_prim t;
@@ -177,10 +186,10 @@ Polymorphic CoFixpoint refresh_value_of@{u+} :=
   Definition inhabit_fixed T := value_of_fixed T >>= fun x => M.ret (inhabits T x).
 
   (* Set Unicoq Trace. *)
-  Definition result_fixed :=
-    ltac:(mrun (inhabit_fixed (SpecificType@{x'} * SpecificType@{y'} * SpecificType@{z'}))).
-  Definition result' :=
-    ltac:(mrun (inhabit' (SpecificType@{x'} * SpecificType@{y'} * SpecificType@{z'}))).
+  Definition result_fixed@{x y z+} :=
+    ltac:(mrun (inhabit_fixed (SpecificType@{x} * SpecificType@{y} * SpecificType@{z}))).
+  Definition result'@{x y z+} :=
+    ltac:(mrun (inhabit' (SpecificType@{x} * SpecificType@{y} * SpecificType@{z}))).
 
   (* Ltac build_term n := *)
   (*   match n with *)
@@ -203,6 +212,7 @@ Polymorphic CoFixpoint refresh_value_of@{u+} :=
     ltac:(
       let t := uconstr:(large_term 200) in
       time mrun (inhabit_fixed t)).
+    Show Universes.
   Time Qed.
   Time Definition result_large' :=
     ltac:(
@@ -285,10 +295,45 @@ Polymorphic CoFixpoint refresh_value_of@{u+} : Refresh (forall T:Prop, M.t@{Set}
 
 
   Set Printing All.
-  Definition result_fixed :=
-    ltac:(mrun (inhabit_fixed (TestT@{x'} /\ TestT@{y'} /\ TestT@{z'}))).
+  Definition result_fixed@{x y z} :=
+    ltac:(mrun (inhabit_fixed (TestT@{x} /\ TestT@{y} /\ TestT@{z}))).
+  Fail Fail Monomorphic Constraint x < y.
 End EQ.
 
+Module Lower.
+
+  Import Mtac2.lib.Specif.
+
+  Fixpoint prod (ts : mlist Type) : Type :=
+    match ts return Type with
+    | mnil => unit
+    | t :m: ts => t * prod ts
+    end%type.
+
+  Fixpoint prod_map {ts : mlist Type} {F} (f : forall T, T -> F T) : prod ts -> prod (mmap F ts) :=
+    match ts as ts return prod ts -> prod (mmap F ts) with
+    | mnil => fun u => u
+    | t :m: ts => fun '(v, vs) => (f t v, prod_map f vs)
+    end.
+
+  (* Definition lub@{i o l+} : forall ts : mlist Type@{i}, M m:{ t : Type@{o} & prod (mmap (fun ty => t -> ty) ts) } := *)
+  (*     (mfix1 go (ts : mlist Type@{i}) : M m:{ t : Type@{o} & prod (mmap (fun ty => t -> ty) ts) } := *)
+  (*        match ts as ts return M m:{ t : Type@{o} & prod (mmap (fun ty => t -> ty) ts) } with *)
+  (*        | mnil => M.ret (mexistT _ Set tt) *)
+  (*        | t :m: ts => *)
+  (*          '(mexistT _ lub funs) <- go ts; *)
+  (*          mtry *)
+  (*            M.cumul_or_fail UniCoq Type@{o} Type@{i};; *)
+  (*            M.ret (mexistT (fun t : Type@{o} => prod (mmap (fun ty => t -> ty) (_ :m: ts))) lub (fun v : t => _, funs)) *)
+  (*          with | [?e] e => *)
+  (*            M.cumul_or_fail UniCoq Type@{i} Type@{o};; *)
+  (*            M.ret (mexistT _ t (fun v : t => _, _)) *)
+  (*          end *)
+  (*        end *)
+  (*     ) *)
+  (*   . *)
+
+End Lower.
 
 Module Soundness.
   #[local] Set Polymorphic Inductive Cumulativity.
@@ -330,5 +375,62 @@ Module Soundness.
    *)
 
   #[local] Unset Polymorphic Inductive Cumulativity.
+
+
+  Polymorphic Definition refresh2
+      {A} {B: A -> Type} {C : forall a, B a -> Type} (t : Refresh (forall (a : A) b, M (C a b))) : forall a b, M (C a b) :=
+    mfix2 go (a : A) b : M (C a b) :=
+      fresh_instance <- M.refresh_prim t;
+      let '{|refresh_rec := _; refresh_body := fresh_body|} := fresh_instance in
+      fresh_body go a b.
+
+  Polymorphic Definition refresh3
+      {A} {B: A -> Type} {C : forall a, B a -> Type} {D : forall a b (c : C a b), Type} (t : Refresh (forall a b c, M (D a b c))) : forall a b c, M (D a b c) :=
+    mfix3 go (a : A) b c : M (D a b c) :=
+      fresh_instance <- M.refresh_prim t;
+      let '{|refresh_rec := _; refresh_body := fresh_body|} := fresh_instance in
+      fresh_body go a b c.
+
+  Arguments ptele _ _ _ &.
+  Arguments pany _ _ _ &.
+  Arguments mcons _ &.
+  Arguments mnil _ &.
+  Arguments branch_pattern _ _ _ &.
+
+
+
+  Polymorphic CoFixpoint failing_refresh@{u1 u2 t1 t2+} : Refresh (forall (n : nat) (T1: Type@{t1}) (T2 : Type@{t2}), M.t@{u2} Type@{u1}) :=
+    {| refresh_rec := failing_refresh
+     ; refresh_body go (n : nat) (T1: Type@{t1}) (T2: Type@{t2}) :=
+      match n with
+      | 0 =>
+        mmatch T1 return M.t@{u2} Type@{u1} with
+        | T1 => M.print "T1";; r <- go 1 T1 T2; M.ret (T1 * r)%type
+        end
+      | _ =>
+        mmatch T2 return M.t@{u2} Type@{u1} with
+        | T2 => M.print "T1";; M.ret T2
+        end
+    end
+    |}.
+
+  Set Printing All.
+
+  Eval cbv beta match iota fix delta [refresh3] in refresh3 failing_refresh.
+
+  Polymorphic Definition failing := refresh3 failing_refresh.
+
+  Monomorphic Universes x y.
+  Monomorphic Constraint x < y.
+
+  Definition failing_test : Type.
+    Set Unicoq Debug.
+    mrun (failing 0 Type@{x} Type@{y}).
+    Show Proof.
+    Show Universes.
+    Show Proof.
+  Qed.
+
+
 
 End Soundness.
