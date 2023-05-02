@@ -8,7 +8,7 @@ Import M.
 Import M.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Module TT.
 

@@ -3,7 +3,7 @@ From Mtac2 Require Import Base Specif Logic Datatypes MTele MTeleMatchDef.
 Import M.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Definition MTele_of {A:Type} (T : A -> Prop) : M (A -> msigT MTele_Ty) :=
   M.nu (FreshFrom T) mNone (fun a =>

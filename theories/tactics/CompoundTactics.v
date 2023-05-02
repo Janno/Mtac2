@@ -6,6 +6,8 @@ Import ProdNotations.
 
 Require Import Strings.String.
 
+Set Universe Polymorphism.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 

@@ -6,7 +6,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Structure result A B x t := R { fu : A -> B; pf : t =m= fu x }.
 Arguments R [A B x t].

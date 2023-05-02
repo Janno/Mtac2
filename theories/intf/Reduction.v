@@ -2,7 +2,7 @@ From Coq Require Import String.
 From Mtac2.intf Require Import Dyn.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Monomorphic Inductive redlist A := rlnil | rlcons : A -> redlist A -> redlist A.
 

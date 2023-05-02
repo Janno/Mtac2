@@ -8,7 +8,7 @@ Import M.
 Import M.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Local Inductive msigT {A} (P : A -> Type) : Type := | mexistT x : P x -> msigT P.
 Local Notation "'{$'  x .. y  &  P }" := (msigT (fun x => .. (msigT (fun y => P)) .. )) (x binder, y binder).

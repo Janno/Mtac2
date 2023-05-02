@@ -2,7 +2,7 @@ From Mtac2 Require Import Datatypes Logic intf.Sorts.
 Import Sorts.S.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 Set Polymorphic Inductive Cumulativity.
 
 Inductive Hyp : Type :=

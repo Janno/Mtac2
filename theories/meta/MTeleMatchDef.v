@@ -5,7 +5,7 @@ Import ListNotations.
 
 Set Universe Polymorphism.
 Set Polymorphic Inductive Cumulativity.
-Unset Universe Minimization ToSet.
+
 
 
 Inductive mtpattern A (M : A -> Prop)  : Prop :=

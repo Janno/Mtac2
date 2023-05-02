@@ -1,5 +1,5 @@
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 (** This module offers two types to encode an element with its type. *)
 

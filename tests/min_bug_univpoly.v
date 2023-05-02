@@ -6,7 +6,6 @@
 (* commenting this makes it work *)
 Set Universe Polymorphism.
 
-Unset Universe Minimization ToSet.
 Module Export AdmitTactic.
 Module Import LocalFalse.
 Inductive False := .
@@ -353,7 +352,7 @@ Notation "'with' p1 | .. | pn 'end'" :=
 
 Delimit Scope with_pattern_scope with with_pattern.
 
-Inductive t@{U1 U2 E1 L1 H1 O1} : Type@{U1} -> Prop :=
+Inductive t@{U1 U2 E1 L1 H1 O1+} : Type@{U1} -> Prop :=
 | ret : forall {A : Type@{U1}}, A -> t A
 | bind : forall {A : Type@{U1}} {B : Type@{U1}},
    t A -> (A -> t B) -> t B

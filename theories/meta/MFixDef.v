@@ -3,7 +3,7 @@ Import Sorts.S.
 Import M.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Local Notation MFA T := (MTele_val (MTele_C Typeₛ Propₛ M T)).
 

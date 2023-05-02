@@ -8,7 +8,7 @@ Import Sorts.S.
 
 Set Universe Polymorphism.
 Set Polymorphic Inductive Cumulativity.
-Unset Universe Minimization ToSet.
+
 
 (** THE definition of the monad *)
 Unset Printing Notations.
@@ -377,7 +377,7 @@ Definition fapp {A:Type} {B:Type} (f : t (A -> B)) (x : t A) : t B :=
   bind f (fun g => fmap g x).
 
 Definition Cevar (A : Type) (ctx : mlist Hyp) : t A := gen_evar A (mSome ctx).
-Definition evar@{a H} (A : Type@{a}) : t A := gen_evar@{a H} A mNone.
+Definition evar@{a H} (A : Type@{a}) : t A := gen_evar@{a H} A mNone@{a}.
 
 Set Universe Minimization ToSet.
 
@@ -407,7 +407,7 @@ Definition failwith {A} (s : string) : t A := raise (Failure s).
 
 (* TODO: figure out why this is incompatible with [Minimization ToSet]. (It
 breaks tests/declare.v.) *)
-Unset Universe Minimization ToSet.
+
 Definition print_term {A} (x : A) : t unit :=
   bind (pretty_print x) (fun s=> print s).
 Set Universe Minimization ToSet.

@@ -2,7 +2,7 @@ Require Import Strings.String.
 From Mtac2.intf Require Import Name.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Inductive Exception : Prop := exception : Exception.
 

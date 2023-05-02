@@ -8,7 +8,6 @@ Require Import Strings.String.
 Import Mtac2.lib.List.ListNotations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
 
 (** This is the [abs] from [MetaCoq] but first reducing the variable
     [x] (in case it is [id x] or some convertible term to a variable)
@@ -158,8 +157,10 @@ Fixpoint RTele_Fun {isort rsort} {it : ITele isort} : forall (rt : RTele rsort i
 
 Notation reduce_novars := (reduce (RedStrong [rl:RedBeta;RedMatch;RedFix;RedDeltaC;RedZeta])).
 
+
+
 (* We need to handle Prop (maybe) *)
-Program Fixpoint abstract_goal {isort} {rsort} {it : ITele isort} (G : stype_of rsort) : forall (args : ATele it) ,
+Fixpoint abstract_goal {isort} {rsort} {it : ITele isort} (G : stype_of rsort) : forall (args : ATele it) ,
   selem_of (ITele_App args) -> M (RTele rsort it) :=
   match it as it' return forall (a' : ATele it'), selem_of (ITele_App a') -> M (RTele rsort it') with
   | iBase T => fun _ => fun t : T =>
@@ -183,13 +184,10 @@ Program Fixpoint abstract_goal {isort} {rsort} {it : ITele isort} (G : stype_of 
         r <- @abs T' Gty v r : M (RTele _ (iTele _));
         let r := reduce RedHNF (r) in
         (* M.ret r *)
-        _
+        M.ret r
       else
         M.failwith "All indices need to be variables"
   end%MC.
-Next Obligation.
-  exact (M.ret r1).
-Defined.
 
 Fixpoint branch_of_CTele {isort} {rsort} {it : ITele isort} (rt : RTele rsort it) (ct : CTele it) : stype_of rsort :=
   match ct with
@@ -243,6 +241,8 @@ Fixpoint get_ATele {isort} (it : ITele isort) (al : mlist dyn) {struct al} : M (
     end.
 
 
+Unset Universe Minimization ToSet.
+
 Definition get_CTele_raw : forall {isort} (it : ITele isort) (nparams nindx : nat) {A : stype_of isort}, A -> M (CTele it) :=
   fun isort it nparams nindx =>
     mfix rec (A : stype_of isort) : selem_of A -> M (CTele it) :=
@@ -263,13 +263,13 @@ Definition get_CTele_raw : forall {isort} (it : ITele isort) (nparams nindx : na
         M.ret (cBase atele a')
     end.
 
+
 Definition get_CTele :=
   fun {isort} =>
     match isort as sort return forall {it : ITele sort} nparams nindx {A : sort}, A -> M (CTele it) with
     | Propₛ => get_CTele_raw (isort := Propₛ)
     | Typeₛ => get_CTele_raw (isort := Typeₛ)
     end.
-
 
 Definition get_NDCTele_raw : forall {isort} (it : ITele isort) (nindx : nat) {A : stype_of isort}, selem_of A -> M (NDCTele it) :=
   fun isort it nindx =>
@@ -301,7 +301,7 @@ Definition get_NDCTele :=
 
 
 (** Given a goal, it returns its sorted version *)
-Program Definition sort_goal {T : Type} : T -> M (sigT stype_of) :=
+Definition sort_goal {T : Type} : T -> M (sigT stype_of) :=
   mtmmatch T as T return T -> M (sigT stype_of) with
   | Prop =u> fun A_Prop => M.ret (existT stype_of Propₛ A_Prop)
   | Type =u> fun A_Type => M.ret (existT stype_of Typeₛ A_Type)
@@ -323,9 +323,11 @@ Program Definition sort_goal {T : Type} : T -> M (sigT stype_of) :=
 (*         M.ret (0, iBase (sort := sort) indProp) *)
 (*     end. *)
 
+Set Printing Universes.
 Definition get_ITele : forall {T : Type} (ind : T), M (nat *m (sigT ITele)) :=
   mfix f (T : _) : T -> M (nat *m sigT ITele)%type :=
-    mtmmatch T as T return T -> M (nat *m sigT ITele)%type with
+    (fun t => M.print_term T;;
+    (mtmmatch T as T return T -> M (nat *m sigT ITele)%type with
     | [? (A : Type) (F : A -> Type)] forall a, F a =m>
       fun indFun =>
       M.nu (FreshFrom T) mNone (fun a : A =>
@@ -344,7 +346,7 @@ Definition get_ITele : forall {T : Type} (ind : T), M (nat *m (sigT ITele)) :=
       fun indType =>
       M.ret (m: 0, existT _ (Typeₛ) (iBase (sort := Typeₛ) indType))
     | T =n> fun _=> M.failwith "Impossible ITele"
-    end.
+    end) t).
 
 Fixpoint compute_params (ind : dyn) {s} (i : ITele s) : M (mlist dyn) :=
   match i with
@@ -442,8 +444,6 @@ Fixpoint apply_params_constrs {s} {i : ITele s} (n : nat) :
 .
 
 
-Obligation Tactic := idtac.
-Program
 Definition get_ind (A : Type) :
   M (nat *m nat *m sigT (fun s => (ITele s)) *m mlist dyn) :=
   '(mkInd_dyn indP nparams nindx constrs) <- M.constrs A;

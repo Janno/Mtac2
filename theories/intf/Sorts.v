@@ -1,9 +1,9 @@
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 (** Types that can hold either a [Prop] or a [Type] *)
-Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+Set Printing Universes.
+
 
 
 Reserved Notation "'Typeₛ'".
@@ -28,6 +28,17 @@ Definition selem_of@{i j+} {s : Sort} : stype_of@{i j} s -> Type@{j} :=
   | Typeₛ => fun x => x
   | Propₛ => fun x => x
   end.
+
+
+(* selem_of@{i j} = *)
+(* fun s : Sort => *)
+(* match s as s0 return (stype_of@{i j} s0 -> Type@{j}) with *)
+(* | Propₛ => fun x : stype_of@{i j} Propₛ => x *)
+(* | Typeₛ => fun x : stype_of@{i j} Typeₛ => x *)
+(* end *)
+(*      : forall s : Sort, stype_of@{i j} s -> Type@{j} *)
+(* (* i j |= Set < i *)
+(*           j < i *) *)
 Arguments selem_of {!_} _ : simpl nomatch.
 
 Fail Local Example CannotMakeAnElementOfaSort s (P : stype_of s) (x : P) := x.

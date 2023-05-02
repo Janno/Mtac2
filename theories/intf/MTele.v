@@ -2,7 +2,7 @@ From Mtac2 Require Import Sorts Specif.
 Import Sorts.S.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 Set Polymorphic Inductive Cumulativity.
 Set Printing Coercions.
 (* Set Printing Universes. *)

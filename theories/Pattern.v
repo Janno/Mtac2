@@ -3,7 +3,7 @@ Import Sorts.S.
 Import ListNotations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 Set Polymorphic Inductive Cumulativity.
 
 (** Pattern matching without pain *)

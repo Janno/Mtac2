@@ -4,7 +4,7 @@ Import Datatypes.ProdNotations.
 
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 Set Polymorphic Inductive Cumulativity.
 
 (** This file implements exhaustive [mmatch]es by introducing the [mmatch t

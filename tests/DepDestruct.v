@@ -3,7 +3,9 @@ Require Import Datatypes List Mtac2 DepDestruct Sorts.
 Import Sorts.S.
 Import T.
 Import Mtac2.lib.List.ListNotations.
-Unset Universe Minimization ToSet.
+
+
+Set Universe Polymorphism.
 
 Goal forall n, 0 <= n.
 MProof.

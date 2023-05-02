@@ -7,7 +7,7 @@ Import TacticsBase.T.notations.
 Import Tactics.T.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Inductive IPB := .
 

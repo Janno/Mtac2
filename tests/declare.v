@@ -112,7 +112,7 @@ Print blu.
 
 Module Inductives.
   Set Polymorphic Inductive Cumulativity.
-  Unset Universe Minimization ToSet.
+
   Import ListNotations.
 
 Definition typ_of {A : Type} (a : A) := A.

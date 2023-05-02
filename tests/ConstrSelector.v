@@ -149,6 +149,7 @@ Inductive ceval : com -> state -> state -> Prop :=
 
 Require Import Strings.String.
 
+#[universes(polymorphic)]
 Definition remember {A} (x:A) (def eq : string) : tactic :=
   cpose_base (TheName def) x (fun y:A=>
     cassert_base (TheName eq) (fun H: y = x =>lrewrite H) |1> reflexivity).

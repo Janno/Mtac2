@@ -16,7 +16,7 @@ Require Import NArith.BinNatDef.
 Import Mtac2.lib.List.ListNotations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Module M.
   Export M.M.

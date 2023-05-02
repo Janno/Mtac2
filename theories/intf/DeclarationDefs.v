@@ -1,5 +1,5 @@
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 (** Lifted from coq 8.6.1 Decl_kinds
     TODO: auto generate this file to avoid inconsistencies.

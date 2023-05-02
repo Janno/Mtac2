@@ -4,7 +4,7 @@ Import M.notations.
 Import ListNotations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 (** Given `(A T : Type) (t : T)`, derive
     - `m : MTele`

@@ -3,7 +3,7 @@ Import ListNotations.
 
 Set Universe Polymorphism.
 Set Polymorphic Inductive Cumulativity.
-Unset Universe Minimization ToSet.
+
 
 Definition dec_bool {P} (x : {P}+{~P}) : bool :=
   match x with

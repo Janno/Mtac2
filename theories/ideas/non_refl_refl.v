@@ -2,7 +2,7 @@ From Mtac2 Require Import Base MTele Logic.
 Import M.notations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 From Coq Require Import JMeq.
 

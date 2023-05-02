@@ -9,7 +9,7 @@ Require Import Mtac2.lib.List.
 Import Mtac2.lib.List.ListNotations.
 
 Set Universe Polymorphism.
-Unset Universe Minimization ToSet.
+
 
 Definition qualify s := String.append "Mtac2.tactics.ImportedTactics." s.
 
