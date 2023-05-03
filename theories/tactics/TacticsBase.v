@@ -13,6 +13,7 @@ Require Import NArith.BinNatDef.
 Set Universe Polymorphism.
 (* Unset Universe Minimization ToSet. *)
 Set Printing Universes.
+Set Polymorphic Inductive Cumulativity.
 
 (** Exceptions *)
 Mtac Do New Exception NoGoalsLeft.
@@ -282,8 +283,6 @@ Definition open_and_apply@{a+} {A:Type@{a}} (t : gtactic A) : goal gs_any -> M (
 
 (** Sequencing *)
 
-#[local] Unset Universe Minimization ToSet.
-Set Printing All.
 Definition bind@{a b+} {A:Type@{a}} {B:Type@{b}} (t : gtactic A) (f : A -> gtactic B) : gtactic B := fun g =>
   gs <- t g >>= filter_goals;
   r <- M.map (fun '(m: x,g') => open_and_apply (f x) g') gs;
@@ -295,20 +294,21 @@ Definition fmap {A B} (f : A -> B) (x : gtactic A) : gtactic B :=
 Definition fapp {A B} (f : gtactic (A -> B)) (x : gtactic A) : gtactic B :=
   bind f (fun g => fmap g x).
 
-Fixpoint gmap {A B} (tacs : mlist (gtactic A)) (gs : mlist (B *m goal gs_any)) : M (mlist (mlist (A *m goal gs_any))) :=
+Fixpoint gmap@{a b+} {A:Type@{a}} {B:Type@{b}} (tacs : mlist (gtactic A)) (gs : mlist (B *m goal gs_any)) : M (mlist (mlist (A *m goal gs_any))) :=
   match tacs, gs with
   | [m:], [m:] => M.ret [m:]
   | tac :m: tacs', (m: _, g) :m: gs' => mcons <$> open_and_apply tac g <*> gmap tacs' gs'
-  | l, l' => M.raise NotSameSize
+  | _, _ => M.raise NotSameSize
   end.
 
 Class Seq (A B C : Type) :=
   seq : gtactic A -> C -> gtactic B.
 Arguments seq {A B C _} _%tactic _%tactic.
 
-#[global] Instance seq_one {A B} : Seq A B (gtactic B) := fun t1 t2 => bind t1 (fun _ => t2).
+#[global] Instance seq_one@{a b+} {A:Type@{a}} {B:Type@{b}} : Seq A B (gtactic B) :=
+  fun t1 t2 => bind t1 (fun _ => t2).
 
-#[global] Instance seq_list {A B} : Seq A B (mlist (gtactic B)) := fun t f g =>
+#[global] Instance seq_list@{a b+} {A:Type@{a}} {B:Type@{b}} : Seq A B (mlist (gtactic B)) := fun t f g =>
   gs <- t g >>= filter_goals;
   ls <- gmap f gs;
   let res := dreduce (@mconcat, mapp) (mconcat ls) in
@@ -326,10 +326,8 @@ Arguments gbase_context {B} {A} _ _.
 Arguments gtele {B C} _.
 Arguments gtele_evar {B C} _.
 
-Unset Printing All.
-Unset Printing Universes.
-Definition match_goal_context (s2:Sort)
-    {C}{A} (x: A) (y: s2) (cont: (A -> s2) -> gtactic C) : gtactic C := fun g=>
+Definition match_goal_context@{c a+} (s2:Sort)
+    {C:Type@{c}}{A:Type@{a}} (x: A) (y: s2) (cont: (A -> s2) -> gtactic C) : gtactic C := fun g=>
   r <- abstract_from_sort s2 x y;
   match r with
   | mSome r =>
@@ -337,7 +335,7 @@ Definition match_goal_context (s2:Sort)
   | mNone => M.raise DoesNotMatchGoal
   end.
 
-Fixpoint match_goal_pattern' {B}
+Fixpoint match_goal_pattern'@{b+} {B:Type@{b}}
     (u : Unification) (p : goal_pattern B) : mlist Hyp -> mlist Hyp -> gtactic B :=
   fix go l1 l2 g :=
   match p, l2 with
@@ -388,7 +386,7 @@ Definition print_goal : tactic := with_goal M.print_goal.
 (** Type for goal manipulation primitives *)
 Definition selector A := mlist (A *m goal gs_any) -> M (mlist (A *m goal gs_any)).
 
-#[global] Instance tactic_selector A : Seq A A (selector A) := fun t s g =>
+#[global] Instance tactic_selector@{a+} {A : Type@{a}} : Seq A A (selector A) := fun t s g =>
   t g >>= filter_goals >>= s.
 
 Module S.
