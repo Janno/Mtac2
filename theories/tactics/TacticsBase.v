@@ -12,6 +12,7 @@ Require Import NArith.BinNatDef.
 
 Set Universe Polymorphism.
 (* Unset Universe Minimization ToSet. *)
+Set Printing Universes.
 
 (** Exceptions *)
 Mtac Do New Exception NoGoalsLeft.
@@ -22,7 +23,7 @@ Mtac Do New Exception NoPatternMatchesGoal.
 Import ProdNotations.
 
 (** The type for tactics *)
-Definition gtactic@{a g1 g2+} (A: Type@{a}) := goal@{g1 g2} gs_open -> M.t (mlist@{a} (mprod A (goal@{g1 g2} gs_any))).
+Definition gtactic@{a g1 g2} (A: Type@{a}) := goal@{g1 g2} gs_open -> M.t@{a} (mlist@{a} (mprod@{a Set} A (goal@{g1 g2} gs_any))).
 Definition tactic := gtactic unit.
 
 Declare Scope tactic_scope.
@@ -31,9 +32,10 @@ Bind Scope tactic_scope with gtactic.
 
 Module T.
 Definition with_goal {A} (f : goal gs_open -> M A) := fun g : goal gs_open =>
-  match g with
+  match g in goal s return match s with gs_open => M _ | _ => True end with
   | Metavar _ _ g' =>
     y <- f g; M.ret [m: (m: y, AnyMetavar _ _ g')]
+  | _ => I
   end.
 
 Coercion of_M {A} (x : M A) : gtactic A := with_goal (fun _ => x).
@@ -262,7 +264,7 @@ Definition filter_goals {A} : mlist (A *m goal gs_any) -> M (mlist (A *m goal gs
 (** [open_and_apply t] is a tactic that "opens" the current goal
     (pushes all the hypotheses in the context) and applies tactic [t]
     to the so-opened goal. The result is "closed" back. *)
-Definition open_and_apply {A} (t : gtactic A) : goal gs_any -> M (mlist (A *m goal gs_any)) :=
+Definition open_and_apply@{a+} {A:Type@{a}} (t : gtactic A) : goal gs_any -> M (mlist (A *m goal gs_any)) :=
   mfix1 open (g: goal gs_any) : M _ :=
     match g return M _ with
     | Metavar _ _ g | AnyMetavar _ _ g => t (Metavar _ _ g)
@@ -280,7 +282,9 @@ Definition open_and_apply {A} (t : gtactic A) : goal gs_any -> M (mlist (A *m go
 
 (** Sequencing *)
 
-Definition bind {A B} (t : gtactic A) (f : A -> gtactic B) : gtactic B := fun g =>
+#[local] Unset Universe Minimization ToSet.
+Set Printing All.
+Definition bind@{a b+} {A:Type@{a}} {B:Type@{b}} (t : gtactic A) (f : A -> gtactic B) : gtactic B := fun g =>
   gs <- t g >>= filter_goals;
   r <- M.map (fun '(m: x,g') => open_and_apply (f x) g') gs;
   let res := dreduce (@mconcat, mapp) (mconcat r) in
