@@ -74,6 +74,11 @@ module UConstrBuilder = struct
     let (sigma, c) = mkUConstr_of_global (Lazy.force s) sigma env in
     (sigma, mkApp (c, args))
 
+  let build_app_univs (s : t) inst sigma env args =
+    let s = Lazy.force s in
+    let c = EConstr.mkRef (s, inst) in
+    (sigma, mkApp (c, args))
+
   let equal s = isUConstr (Lazy.force s)
 
   let from_coq s (env, sigma) cterm =
@@ -84,7 +89,7 @@ end
 module CoqOption = struct
   open UConstrBuilder
 
-  (* let optionBuilder = from_string "Mtac2.lib.Datatypes.moption" *)
+  let optionBuilder = from_string "Mtac2.lib.Datatypes.moption"
   let noneBuilder = from_string "Mtac2.lib.Datatypes.mNone"
   let someBuilder = from_string "Mtac2.lib.Datatypes.mSome"
 
@@ -116,6 +121,11 @@ module type ListParams = sig
 end
 
 module type LIST = sig
+
+  val listBuilder : UConstrBuilder.t
+  val nilBuilder  : UConstrBuilder.t
+  val consBuilder : UConstrBuilder.t
+
   val mkNil : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * constr
   val mkCons : Evd.evar_map -> Environ.env -> types -> constr -> constr -> Evd.evar_map * constr
   val mkType : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * types

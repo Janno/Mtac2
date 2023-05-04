@@ -463,16 +463,18 @@ module RE = ReductionStrategy
 module UnificationStrategy = struct
   open Evarsolve
 
+  let evar_conv ts env sigma conv_pb t1 t2 =
+    try
+      match evar_conv_x (default_flags_of ts) env sigma conv_pb t1 t2 with
+      | Success sigma -> Success (solve_unif_constraints_with_heuristics env sigma)
+      | e -> e
+    with _ -> UnifFailure (sigma, Pretype_errors.ProblemBeyondCapabilities)
+
   let funs = [|
     (fun _-> Unicoq.Munify.unify_evar_conv);
     Unicoq.Munify.unify_match;
     Unicoq.Munify.unify_match_nored;
-    (fun _ ts env sigma conv_pb t1 t2->
-       try
-         match evar_conv_x (default_flags_of ts) env sigma conv_pb t1 t2 with
-         | Success sigma -> Success (solve_unif_constraints_with_heuristics env sigma)
-         | e -> e
-       with _ -> UnifFailure (sigma, Pretype_errors.ProblemBeyondCapabilities))
+    (fun _ -> evar_conv)
   |]
 
   let unicoq_pos = 0
@@ -751,6 +753,7 @@ let get_Constrs (env, sigma) t =
 
 module Hypotheses = struct
 
+  let hyp_builder = mkUBuilder "Goals.Hyp"
   let ahyp_constr = mkUBuilder "Goals.ahyp"
 
   let mkAHyp sigma env ty n t =
@@ -1427,9 +1430,9 @@ let pop_args num stack =
   else (Array.concat argss, stack)
 
 let unfold_reference env (cst, u) = match Environ.lookup_constant cst env with
-| { const_body = Def b } -> Some (CClosure.mk_clos (Esubst.subs_id 0, u) b)
-| { const_body = (OpaqueDef _ | Undef _ | Primitive _) } -> None
-| exception Not_found -> None
+  | { const_body = Def b } -> Some (CClosure.mk_clos (Esubst.subs_id 0, u) b)
+  | { const_body = (OpaqueDef _ | Undef _ | Primitive _) } -> None
+  | exception Not_found -> None
 
 let rec run' ctxt (vms : vm list) =
   (* let sigma, env, stack = ctxt.sigma, ctxt.env, ctxt.stack in *)
@@ -1577,7 +1580,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
         match MConstr.mconstr_head_opt hc with
         | Some mh ->
             (* We have reached a primitive *)
-            (primitive[@tailcall]) ctxt vms mh reduced_term
+            (primitive[@tailcall]) ctxt vms mh u reduced_term
         | None ->
             match unfold_reference env (hc, u) with
             | Some v ->
@@ -1631,7 +1634,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
         );
       efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
 
-and primitive ctxt vms mh reduced_term =
+and primitive ctxt vms mh univs reduced_term =
   let sigma, env, stack = ctxt.sigma, ctxt.env, ctxt.stack in
   let open MConstr in
 
@@ -1859,7 +1862,38 @@ and primitive ctxt vms mh reduced_term =
       let s = constr_to_string sigma env t in
       ereturn sigma (CoqString.to_coq s)
 
-  | MConstr (Mhyps, _) -> return sigma ctxt.renv
+  | MConstr (Mhyps, _) ->
+      let sigma, hyps = Evarsolve.refresh_universes ~onlyalg:false (Some false) env sigma (to_econstr ctxt.renv) in
+      let sigma, ty = Typing.type_of env sigma hyps in
+      let sigma, expected_ty =
+        let ulist, uhyp =
+          match Univ.Instance.to_array univs with
+          | [|ulist; uhyp|] -> ulist, uhyp
+          | _ -> assert false
+        in
+        let ulist = EInstance.make (Univ.Instance.of_array [|ulist|]) in
+        let uhyp  = EInstance.make (Univ.Instance.of_array [|uhyp|]) in
+        let sigma, hyp = UConstrBuilder.build_app_univs Hypotheses.hyp_builder uhyp sigma env [||] in
+        let sigma, list = UConstrBuilder.build_app_univs CoqList.listBuilder ulist sigma env [|hyp|] in
+        sigma, list
+      in
+      Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
+      Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
+      Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps);
+      begin
+        let ts = get_ts env in
+        let r = UnificationStrategy.evar_conv ts env sigma Conversion.CONV ty expected_ty in
+        match r with
+        | Evarsolve.Success sigma ->
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
+            Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps);
+            return sigma (of_econstr hyps)
+        | UnifFailure (sigma, err) ->
+            let err = Pretype_errors.CannotUnify (ty, expected_ty, Some err) in
+            Feedback.msg_debug (Himsg.explain_pretype_error env sigma err);
+            efail (E.mkNotAList sigma env hyps) (* TODO pick correct exception *)
+      end
 
   | MConstr (Mdestcase, (_, t)) ->
       let t = to_econstr t in

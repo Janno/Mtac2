@@ -41,6 +41,10 @@ module UConstrBuilder : sig
 
   val build_app : t -> Evd.evar_map -> Environ.env
     -> constr array -> (Evd.evar_map * constr)
+
+  val build_app_univs : t -> EInstance.t -> Evd.evar_map -> Environ.env
+    -> constr array -> (Evd.evar_map * constr)
+
 end
 
 module CoqN : sig
@@ -68,6 +72,11 @@ module type ListParams = sig
 end
 
 module type LIST = sig
+
+  val listBuilder : UConstrBuilder.t
+  val nilBuilder  : UConstrBuilder.t
+  val consBuilder : UConstrBuilder.t
+
   val mkNil : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * constr
   val mkCons : Evd.evar_map -> Environ.env -> types -> constr -> constr -> Evd.evar_map * constr
   val mkType : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * types
@@ -89,6 +98,11 @@ module GenericList : functor (LP : ListParams) -> LIST
 module CoqList : LIST
 
 module CoqOption : sig
+
+  val optionBuilder : UConstrBuilder.t
+  val noneBuilder   : UConstrBuilder.t
+  val someBuilder   : UConstrBuilder.t
+
   val mkNone : Evd.evar_map -> Environ.env -> types -> Evd.evar_map * constr
   val mkSome : Evd.evar_map -> Environ.env -> types -> constr -> Evd.evar_map * constr
 
