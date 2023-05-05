@@ -1866,30 +1866,30 @@ and primitive ctxt vms mh univs reduced_term =
       let sigma, hyps = Evarsolve.refresh_universes ~onlyalg:false None env sigma (to_econstr ctxt.renv) in
       let sigma, ty = Typing.type_of env sigma hyps in
       let sigma, expected_ty =
-        (* let ulist, uhyp =
-         *   match Univ.Instance.to_array univs with
-         *   | [|ulist; uhyp|] -> ulist, uhyp
-         *   | _ -> assert false
-         * in *)
-        (* let ulist = EInstance.make (Univ.Instance.of_array [|ulist|]) in
-         * let uhyp  = EInstance.make (Univ.Instance.of_array [|uhyp|]) in *)
-        let ulist = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in
-        let uhyp = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in
+        let ulist, uhyp =
+          match Univ.Instance.to_array univs with
+          | [|ulist; uhyp|] -> ulist, uhyp
+          | _ -> assert false
+        in
+        let ulist = EInstance.make (Univ.Instance.of_array [|ulist|]) in
+        let uhyp  = EInstance.make (Univ.Instance.of_array [|uhyp|]) in
+        (* let ulist = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in
+         * let uhyp = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in *)
         let sigma, hyp = UConstrBuilder.build_app ~univs:uhyp Hypotheses.hyp_builder sigma env [||] in
         let sigma, list = UConstrBuilder.build_app ~univs:ulist CoqList.listBuilder sigma env [|hyp|] in
         sigma, list
       in
-      Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
-      Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
-      Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps);
+      (* Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
+       * Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
+       * Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps); *)
       begin
         let ts = get_ts env in
         let r = UnificationStrategy.evar_conv ts env sigma Conversion.CONV ty expected_ty in
         match r with
         | Evarsolve.Success sigma ->
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
-            Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps);
+            (* Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);
+             * Feedback.msg_debug (Printer.pr_econstr_env env sigma ty);
+             * Feedback.msg_debug (Printer.pr_econstr_env env sigma hyps); *)
             return sigma (of_econstr hyps)
         | UnifFailure (sigma, err) ->
             let err = Pretype_errors.CannotUnify (ty, expected_ty, Some err) in
