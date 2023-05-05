@@ -1863,18 +1863,20 @@ and primitive ctxt vms mh univs reduced_term =
       ereturn sigma (CoqString.to_coq s)
 
   | MConstr (Mhyps, _) ->
-      let sigma, hyps = Evarsolve.refresh_universes ~onlyalg:false (Some false) env sigma (to_econstr ctxt.renv) in
+      let sigma, hyps = Evarsolve.refresh_universes ~onlyalg:false None env sigma (to_econstr ctxt.renv) in
       let sigma, ty = Typing.type_of env sigma hyps in
       let sigma, expected_ty =
-        let ulist, uhyp =
-          match Univ.Instance.to_array univs with
-          | [|ulist; uhyp|] -> ulist, uhyp
-          | _ -> assert false
-        in
-        let ulist = EInstance.make (Univ.Instance.of_array [|ulist|]) in
-        let uhyp  = EInstance.make (Univ.Instance.of_array [|uhyp|]) in
-        let sigma, hyp = UConstrBuilder.build_app_univs Hypotheses.hyp_builder uhyp sigma env [||] in
-        let sigma, list = UConstrBuilder.build_app_univs CoqList.listBuilder ulist sigma env [|hyp|] in
+        (* let ulist, uhyp =
+         *   match Univ.Instance.to_array univs with
+         *   | [|ulist; uhyp|] -> ulist, uhyp
+         *   | _ -> assert false
+         * in *)
+        (* let ulist = EInstance.make (Univ.Instance.of_array [|ulist|]) in
+         * let uhyp  = EInstance.make (Univ.Instance.of_array [|uhyp|]) in *)
+        let ulist = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in
+        let uhyp = EInstance.make (Univ.Instance.of_array [|Univ.Level.set|]) in
+        let sigma, hyp = UConstrBuilder.build_app ~univs:uhyp Hypotheses.hyp_builder sigma env [||] in
+        let sigma, list = UConstrBuilder.build_app ~univs:ulist CoqList.listBuilder sigma env [|hyp|] in
         sigma, list
       in
       Feedback.msg_debug (Printer.pr_econstr_env env sigma expected_ty);

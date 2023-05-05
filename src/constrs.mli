@@ -39,10 +39,7 @@ module UConstrBuilder : sig
 
   val from_coq : t -> (Environ.env * Evd.evar_map) -> constr -> (constr array) option
 
-  val build_app : t -> Evd.evar_map -> Environ.env
-    -> constr array -> (Evd.evar_map * constr)
-
-  val build_app_univs : t -> EInstance.t -> Evd.evar_map -> Environ.env
+  val build_app : ?univs:(EInstance.t) -> t -> Evd.evar_map -> Environ.env
     -> constr array -> (Evd.evar_map * constr)
 
 end

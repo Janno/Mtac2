@@ -70,13 +70,12 @@ module UConstrBuilder = struct
 
   let from_string (s:string) : t = lazy (Nametab.global_of_path (Libnames.path_of_string s))
 
-  let build_app s sigma env args =
-    let (sigma, c) = mkUConstr_of_global (Lazy.force s) sigma env in
-    (sigma, mkApp (c, args))
-
-  let build_app_univs (s : t) inst sigma env args =
+  let build_app ?univs s sigma env args =
     let s = Lazy.force s in
-    let c = EConstr.mkRef (s, inst) in
+    let sigma, c = match univs with
+      | Some inst -> sigma, EConstr.mkRef (s, inst)
+      | None ->  mkUConstr_of_global s sigma env
+    in
     (sigma, mkApp (c, args))
 
   let equal s = isUConstr (Lazy.force s)
