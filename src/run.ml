@@ -2448,7 +2448,7 @@ let multi_subst_inv sigma l c =
   in substrec 0 c
 
 
-let run (env0, sigma) ty t : data =
+let run ?pstate (env0, sigma) ty t : data =
 
 
   let subs, env = db_to_named sigma env0 in
@@ -2474,6 +2474,16 @@ let run (env0, sigma) ty t : data =
           Backtrace.push (
             fun () -> InternalException (Printer.pr_econstr_env env (sigma) v)
           ) backtrace
+      in
+      let _ =
+        match pstate with
+        | Some pstate ->
+            let Proof.{goals;sigma} = Proof.data (Declare.Proof.get pstate) in
+            let ctx = Evd.universe_context_set (Evd.minimize_universes sigma) in
+            Feedback.msg_debug (
+              Termops.pr_evar_universe_context (Evd.evar_universe_context sigma) ++ fnl () ++
+              str "Normalized constraints:" ++ brk(1,1) ++ Univ.pr_universe_context_set (Termops.pr_evd_level sigma) ctx)
+        | _ -> ()
       in
       Err ((sigma, v), backtrace)
   | Val (sigma', v, stack, tr) ->

@@ -105,7 +105,7 @@ module MetaCoqRun = struct
       else
         CErrors.user_err (Pp.str "Not a Mtactic")
 
-  let run ?loc env sigma concl evar istactic (oty) t =
+  let run ?loc ?pstate env sigma concl evar istactic (oty) t =
     (* [run] is also the entry point for code that doesn't go through
        [pretypeT] so we have to do the application to the current goal
        for tactics in here instead of [pretypeT].
@@ -122,7 +122,7 @@ module MetaCoqRun = struct
       | Some ty -> sigma, ty
       | None -> Typing.type_of env sigma t
     in
-    match Run.run (env, sigma) ty t with
+    match Run.run ?pstate (env, sigma) ty t with
     | Run.Val (sigma, v) ->
         let open Proofview in let open Proofview.Notations in
         Unsafe.tclEVARSADVANCE sigma >>= fun _->
@@ -154,7 +154,7 @@ module MetaCoqRun = struct
       Then run the interpretation fo the constr, and returns the tactic value,
       according to the value of the data returned by [run].
   *)
-  let run_tac t =
+  let run_tac ?pstate t =
     let open Proofview.Goal in
     enter begin fun gl ->
       let loc = Constrexpr_ops.constr_loc t in
@@ -165,7 +165,7 @@ module MetaCoqRun = struct
       let (sigma, t) = Constrintern.interp_open_constr env sigma t in
       let (istactic, sigma, ty, t) = pretypeT env sigma concl evar t in
       (* We could be smarter here with the optional type argument to [run] but I cannot get it to work. *)
-      run ?loc env sigma concl evar istactic (None) t
+      run ?loc ?pstate env sigma concl evar istactic (None) t
     end
 
 
@@ -247,14 +247,14 @@ end
 let interp_mproof_command () = ()
 
 (** Interpreter of a mtactic *)
-let interp_instr = function
-  | MetaCoqInstr.MetaCoq_constr c -> MetaCoqRun.run_tac c
+let interp_instr ~pstate = function
+  | MetaCoqInstr.MetaCoq_constr c -> MetaCoqRun.run_tac ~pstate c
 
 let exec ~pstate f =
-  fst @@ Declare.Proof.by (f ()) pstate
+  fst @@ Declare.Proof.by (f ~pstate) pstate
 
 (** Interpreter of a constr :
     - Interpretes the constr
     - Unfocus on the current proof *)
 let interp_proof_constr ~pstate instr =
-  exec ~pstate (fun () -> interp_instr instr)
+  exec ~pstate (fun ~pstate -> interp_instr ~pstate instr)
