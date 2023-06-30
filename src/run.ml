@@ -1415,9 +1415,10 @@ let pop_args num stack =
       ([], stack)
   in
   let argss, stack = pop_args num stack in
-  if List.length argss == 0 then ([||], stack)
-  else if List.length argss == 1 then (List.hd argss, stack)
-  else (Array.concat argss, stack)
+  match argss with
+  | [] -> ([||], stack)
+  | [args] -> (args, stack)
+  | _ -> (Array.concat argss, stack)
 
 let unfold_reference env (cst, u) = match Environ.lookup_constant cst env with
   | { const_body = Def b } -> Some (CClosure.mk_clos (Esubst.subs_id 0, u) b)
