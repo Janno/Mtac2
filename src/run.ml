@@ -1479,151 +1479,154 @@ let rec run' ctxt (vms : vm list) =
   | Code t, _ -> (eval[@tailcall]) ctxt vms t
 
 and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
-  let sigma, env, stack = ctxt.sigma, ctxt.env, ctxt.stack in
+  let sigma, env = ctxt.sigma, ctxt.env in
 
-  let upd c = (Code c :: vms) in
-
-  (* let cont ctxt h args = (run'[@tailcall]) {ctxt with stack=Zapp args::stack} (Code h :: vms) in *)
-
-  (* let term = zip_term (CClosure.term_of_fconstr t) stack in
-   * Feedback.msg_debug (Printer.pr_constr_env env sigma term); *)
+  let _upd c = (Code c :: vms) in
 
   let reds = CClosure.allnolet in
   let reds = CClosure.RedFlags.red_add_transparent reds TransparentState.var_full in
   let infos = create_clos_infos env sigma reds in
   let tab = CClosure.create_tab () in
-  let reduced_term, stack = reduce_noshare infos tab t stack in
 
-  (* Feedback.msg_debug (Pp.int (List.length stack)); *)
 
-  let ctxt = {ctxt with stack} in
+  (* let term = zip_term (CClosure.term_of_fconstr t) stack in
+   * Feedback.msg_debug (Printer.pr_constr_env env sigma term); *)
 
-  let fail ?internal:(i=true) (sigma, c) =
-    let backtrace =
-      if i then
-        let p () = InternalException (Printer.pr_econstr_env env sigma (to_econstr c)) in
-        Backtrace.push (p) ctxt.backtrace
-      else ctxt.backtrace
+  let rec eval_red backtrace stack t =
+
+    let reduced_term, stack = reduce_noshare infos tab t stack in
+
+    (* Feedback.msg_debug (Pp.int (List.length stack)); *)
+
+    let ctxt = {ctxt with stack} in
+
+    let fail ?internal:(i=true) (sigma, c) =
+      let backtrace =
+        if i then
+          let p () = InternalException (Printer.pr_econstr_env env sigma (to_econstr c)) in
+          Backtrace.push (p) backtrace
+        else backtrace
+      in
+      (run'[@tailcall]) {ctxt with sigma; backtrace} (Fail c :: vms)
     in
-    (run'[@tailcall]) {ctxt with sigma; backtrace} (Fail c :: vms)
-  in
-  let efail ?internal (sigma, fc) = fail ?internal (sigma, of_econstr fc) in
+    let efail ?internal (sigma, fc) = fail ?internal (sigma, of_econstr fc) in
 
-  let ctx_st = context_of_stack stack in
+    let ctx_st = context_of_stack stack in
 
-  (* (if !trace then (
-   *    (let open Pp in match ctx_st with
-   *     | Monadic -> Feedback.msg_debug (str "monadic " ++ bool reduced_to_let)
-   *     | Pure -> Feedback.msg_debug (str "pure " ++ bool reduced_to_let)
-   *    );
-   *
-   *    let term = _zip_term (CClosure.term_of_fconstr reduced_term) stack in
-   *    Feedback.msg_debug (Printer.pr_constr_env env sigma term)
-   *  )
-   *  else ()
-   * ); *)
+    (* (if !trace then (
+     *    (let open Pp in match ctx_st with
+     *     | Monadic -> Feedback.msg_debug (str "monadic " ++ bool reduced_to_let)
+     *     | Pure -> Feedback.msg_debug (str "pure " ++ bool reduced_to_let)
+     *    );
+     *
+     *    let term = _zip_term (CClosure.term_of_fconstr reduced_term) stack in
+     *    Feedback.msg_debug (Printer.pr_constr_env env sigma term)
+     *  )
+     *  else ()
+     * ); *)
 
-  let is_blocked = function
-    | FFlex (VarKey _) -> true
-    | (FRel i | FFlex (RelKey i))
-      when not (Environ.evaluable_rel i env) -> true
-    | _ -> false
-  in
+    let is_blocked = function
+      | FFlex (VarKey _) -> true
+      | (FRel i | FFlex (RelKey i))
+        when not (Environ.evaluable_rel i env) -> true
+      | _ -> false
+    in
 
-  match ctx_st, fterm_of reduced_term with
-  | Monadic, FConstruct _ -> failwith ("Invariant invalidated: reduction reached the constructor of M.t.")
-  | Monadic, FLetIn (_,v,_,bd,e) ->
-      let open ReductionStrategy in
-      let (is_reduce, num_args, args_clos) = (
-        match fterm_of v with
-        | FApp (h, args) -> (isFReduce sigma env h, Array.length args, fun () -> args)
-        | FCLOS (t, subst) when Constr.isApp t ->
-            let (h, args) = Constr.destApp t in
-            (isTReduce sigma env h,
-             Array.length args,
-             fun () -> Array.map (fun x -> mk_red (FCLOS (x, subst))) args
-            )
-        | _ -> (false, -1, fun () -> [||])
-      ) in
-      if is_reduce && num_args == 3 then
-        let args' = args_clos () in
-        let red = Array.get args' 0 in
-        let term = Array.get args' 2 in
-        (* print_constr sigma env term; *)
-        let ob = reduce sigma env (to_econstr red) (to_econstr term) in
-        match ob with
-        | ReductionValue (sigma, b) ->
-            let e = (CClosure.usubs_cons (of_econstr b) e) in
-            let ctxt = {ctxt with sigma} in
-            (run'[@tailcall]) ctxt (upd (mk_red (FCLOS (bd, e))))
-        | ReductionStuck ->
-            let l = to_econstr (Array.get args' 0) in
-            efail (E.mkNotAList sigma env l)
-        | ReductionFailure ->
-            let l = to_econstr (Array.get args' 0) in
-            efail (E.mkReductionFailure sigma env l)
-      else
-        let e = (CClosure.usubs_cons v e) in
-        (eval[@tailcall]) ctxt vms (mk_red (FCLOS (bd, e)))
+    match ctx_st, fterm_of reduced_term with
+    | Monadic, FConstruct _ -> failwith ("Invariant invalidated: reduction reached the constructor of M.t.")
+    | Monadic, FLetIn (_,v,_,bd,e) ->
+        let open ReductionStrategy in
+        let (is_reduce, num_args, args_clos) = (
+          match fterm_of v with
+          | FApp (h, args) -> (isFReduce sigma env h, Array.length args, fun () -> args)
+          | FCLOS (t, subst) when Constr.isApp t ->
+              let (h, args) = Constr.destApp t in
+              (isTReduce sigma env h,
+               Array.length args,
+               fun () -> Array.map (fun x -> mk_red (FCLOS (x, subst))) args
+              )
+          | _ -> (false, -1, fun () -> [||])
+        ) in
+        if is_reduce && num_args == 3 then
+          let args' = args_clos () in
+          let red = Array.get args' 0 in
+          let term = Array.get args' 2 in
+          (* print_constr sigma env term; *)
+          let ob = reduce sigma env (to_econstr red) (to_econstr term) in
+          match ob with
+          | ReductionValue (sigma, b) ->
+              let e = (CClosure.usubs_cons (of_econstr b) e) in
+              let ctxt = {ctxt with sigma} in
+              (eval[@tailcall]) ctxt vms (mk_red (FCLOS (bd, e)))
+          | ReductionStuck ->
+              let l = to_econstr (Array.get args' 0) in
+              efail (E.mkNotAList sigma env l)
+          | ReductionFailure ->
+              let l = to_econstr (Array.get args' 0) in
+              efail (E.mkReductionFailure sigma env l)
+        else
+          let e = (CClosure.usubs_cons v e) in
+          (eval[@tailcall]) ctxt vms (mk_red (FCLOS (bd, e)))
 
-  | Monadic, FFlex (ConstKey (hc, u)) ->
-      begin
-        match MConstr.mconstr_head_opt hc with
-        | Some mh ->
-            (* We have reached a primitive *)
-            (primitive[@tailcall]) ctxt vms mh u reduced_term
-        | None ->
-            match unfold_reference env (hc, u) with
-            | Some v ->
-                let backtrace = Backtrace.push (fun () -> Constant hc) ctxt.backtrace in
-                let ctxt = {ctxt with backtrace} in
-                (run'[@taillcall]) ctxt (Code v :: vms)
-            | None ->
-                efail (E.mkStuckTerm sigma env (to_econstr t))
-      end
+    | Monadic, FFlex (ConstKey (hc, u)) ->
+        begin
+          match MConstr.mconstr_head_opt hc with
+          | Some mh ->
+              (* We have reached a primitive *)
+              (primitive[@tailcall]) ctxt vms mh u reduced_term
+          | None ->
+              match unfold_reference env (hc, u) with
+              | Some v ->
+                  let backtrace = Backtrace.push (fun () -> Constant hc) backtrace in
+                  (eval_red[@taillcall]) backtrace stack v
+              | None ->
+                  efail (E.mkStuckTerm sigma env (to_econstr t))
+        end
 
-  (* [whd_stack] considers unfolded primitive projections fully reduced. That will not do. *)
-  | Monadic, FProj (proj, t) ->
-      let stack = Zproj (Projection.repr proj) :: stack in
-      let ctxt = {ctxt with stack} in
-      (eval[@tailcall]) ctxt vms t
+    (* [whd_stack] considers unfolded primitive projections fully reduced. That will not do. *)
+    | Monadic, FProj (proj, t) ->
+        let stack = Zproj (Projection.repr proj) :: stack in
+        (eval_red[@tailcall]) backtrace stack t
 
 
-  | Pure, (_ as t) when (is_blocked t) ->
-      begin
+    | Pure, (_ as t) when (is_blocked t) ->
+        begin
+          if !debug_ex then
+            (let open Pp in
+             Feedback.msg_debug (
+               Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
+             )
+            );
+          efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
+        end
+
+    | Pure, (_ as t) when not reduced_to_let ->
+        let careless, careful = cut_stack stack in
+        let infos = CClosure.infos_with_reds infos (CClosure.all) in
+        (* let term_to_reduce = _zip_term (CClosure.term_of_fconstr reduced_term) careless in
+         * Feedback.msg_debug (Printer.pr_constr_env env sigma term_to_reduce); *)
+        let tab = CClosure.create_tab () in
+        let t', stack = reduce_noshare infos tab (CClosure.mk_red t) careless in
+
+        let stack = List.append stack careful in
+        (* carefully reduce further without touching lets *)
+        let infos = CClosure.infos_with_reds infos (CClosure.allnolet) in
+        let tab = CClosure.create_tab () in
+        let t', stack = reduce_noshare infos tab t' stack in
+        (* signal that we have advanced reduced everything down to lets *)
+        (eval[@tailcall]) {ctxt with stack} vms ?reduced_to_let:(Some true) t'
+
+    | _ ->
         if !debug_ex then
           (let open Pp in
            Feedback.msg_debug (
-             Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Are you trying to reduce a \\nu variable?"
+             Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Context: " ++ (match ctx_st with | Pure -> str "Pure" | Monadic -> str "Monadic") ++ str ". " ++ if reduced_to_let then str "Reduced to let-in." else str "Not reduced to let-in."
            )
           );
         efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
-      end
+  in
 
-  | Pure, (_ as t) when not reduced_to_let ->
-      let careless, careful = cut_stack stack in
-      let infos = CClosure.infos_with_reds infos (CClosure.all) in
-      (* let term_to_reduce = _zip_term (CClosure.term_of_fconstr reduced_term) careless in
-       * Feedback.msg_debug (Printer.pr_constr_env env sigma term_to_reduce); *)
-      let tab = CClosure.create_tab () in
-      let t', stack = reduce_noshare infos tab (CClosure.mk_red t) careless in
-
-      let stack = List.append stack careful in
-      (* carefully reduce further without touching lets *)
-      let infos = CClosure.infos_with_reds infos (CClosure.allnolet) in
-      let tab = CClosure.create_tab () in
-      let t', stack = reduce_noshare infos tab t' stack in
-      (* signal that we have advanced reduced everything down to lets *)
-      (eval[@tailcall]) {ctxt with stack} vms ?reduced_to_let:(Some true) t'
-
-  | _ ->
-      if !debug_ex then
-        (let open Pp in
-         Feedback.msg_debug (
-           Printer.pr_econstr_env env sigma (to_econstr reduced_term) ++ str " is not evaluable. Context: " ++ (match ctx_st with | Pure -> str "Pure" | Monadic -> str "Monadic") ++ str ". " ++ if reduced_to_let then str "Reduced to let-in." else str "Not reduced to let-in."
-         )
-        );
-      efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
+  eval_red ctxt.backtrace ctxt.stack t
 
 and primitive ctxt vms mh univs reduced_term =
   let sigma, env, stack = ctxt.sigma, ctxt.env, ctxt.stack in
