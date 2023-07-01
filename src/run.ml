@@ -1492,7 +1492,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
   (* let term = zip_term (CClosure.term_of_fconstr t) stack in
    * Feedback.msg_debug (Printer.pr_constr_env env sigma term); *)
 
-  let rec eval_red backtrace stack t =
+  let rec eval_red ?(reduced_to_let=false) backtrace stack t =
 
     let reduced_term, stack = reduce_noshare infos tab t stack in
 
@@ -1614,7 +1614,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
         let tab = CClosure.create_tab () in
         let t', stack = reduce_noshare infos tab t' stack in
         (* signal that we have advanced reduced everything down to lets *)
-        (eval[@tailcall]) {ctxt with stack} vms ?reduced_to_let:(Some true) t'
+        (eval_red[@tailcall]) ~reduced_to_let:true backtrace stack  t'
 
     | _ ->
         if !debug_ex then
@@ -1626,7 +1626,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
         efail (E.mkStuckTerm sigma env (to_econstr reduced_term))
   in
 
-  eval_red ctxt.backtrace ctxt.stack t
+  eval_red ~reduced_to_let ctxt.backtrace ctxt.stack t
 
 and primitive ctxt vms mh univs reduced_term =
   let sigma, env, stack = ctxt.sigma, ctxt.env, ctxt.stack in
