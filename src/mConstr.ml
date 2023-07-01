@@ -1,6 +1,4 @@
 open MtacNames
-open EConstr
-
 type arg = CClosure.fconstr
 
 type arg_any = arg
@@ -153,369 +151,146 @@ let num_args_of_mconstr (type a) (mh : a mconstr_head) =
   | Minstantiate_evar -> 6
 
 
-let _mkconstr s = lazy (let (_, c) = mkUConstr ("M.M." ^ s) Evd.empty (Global.env ()) in c)
-let _isconstr c h = eq_constr_nounivs Evd.empty (Lazy.force c) h
-let isconstant n h = Names.Constant.CanOrd.equal (Lazy.force n) h
 
-let constant_of_string s = lazy (constant_of_string ("M.M." ^ s))
 
-let name_ret = constant_of_string "ret"
-(* let mkret = mkconstr name_ret *)
-let isret = isconstant name_ret
 
-let name_bind = constant_of_string "bind"
-(* let mkbind = mkconstr name_bind *)
-let isbind = isconstant name_bind
+module ConstructorMap = struct
+  let map : mhead Names.GlobRef.Map.t lazy_t =
+    lazy (
 
-let name_try' = constant_of_string "mtry'"
-(* let mktry' = mkconstr name_try' *)
-let istry' = isconstant name_try'
+      let constant_of_string s = constant_of_string ("M.M." ^ s) in
+      let name_ret = constant_of_string "ret" in
+      let name_bind = constant_of_string "bind" in
+      let name_try' = constant_of_string "mtry'" in
+      let name_raise = constant_of_string "raise'" in
+      let name_fix1 = constant_of_string "fix1" in
+      let name_fix2 = constant_of_string "fix2" in
+      let name_fix3 = constant_of_string "fix3" in
+      let name_fix4 = constant_of_string "fix4" in
+      let name_fix5 = constant_of_string "fix5" in
+      let name_is_var = constant_of_string "is_var" in
+      let name_nu = constant_of_string "nu" in
+      let name_nu_let = constant_of_string "nu_let" in
+      let name_abs_fun = constant_of_string "abs_fun" in
+      let name_abs_let = constant_of_string "abs_let" in
+      let name_abs_prod_prop = constant_of_string "abs_prod_prop" in
+      let name_abs_prod_type = constant_of_string "abs_prod_type" in
+      let name_abs_fix = constant_of_string "abs_fix" in
+      let name_get_binder_name = constant_of_string "get_binder_name" in
+      let name_remove = constant_of_string "remove" in
+      let name_gen_evar = constant_of_string "gen_evar" in
+      let name_is_evar = constant_of_string "is_evar" in
+      let name_hash = constant_of_string "hash" in
+      let name_solve_typeclasses = constant_of_string "solve_typeclasses" in
+      let name_print = constant_of_string "print" in
+      let name_pretty_print = constant_of_string "pretty_print" in
+      let name_hyps = constant_of_string "hyps" in
+      let name_destcase = constant_of_string "destcase" in
+      let name_constrs = constant_of_string "constrs" in
+      let name_makecase = constant_of_string "makecase" in
+      let name_unify = constant_of_string "unify_cnt" in
+      let name_unify_cumul = constant_of_string "unify_cumul_cnt" in
+      let name_get_reference = constant_of_string "get_reference" in
+      let name_get_var = constant_of_string "get_var" in
+      let name_call_ltac = constant_of_string "call_ltac" in
+      let name_list_ltac = constant_of_string "list_ltac" in
+      let name_read_line = constant_of_string "read_line" in
+      let name_decompose = constant_of_string "decompose" in
+      let name_solve_typeclass = constant_of_string "solve_typeclass" in
+      let name_declare = constant_of_string "declare" in
+      let name_declare_implicits = constant_of_string "declare_implicits" in
+      let name_os_cmd = constant_of_string "os_cmd" in
+      let name_get_debug_ex = constant_of_string "get_debug_exceptions" in
+      let name_set_debug_ex = constant_of_string "set_debug_exceptions" in
+      let name_get_trace = constant_of_string "get_trace" in
+      let name_set_trace = constant_of_string "set_trace" in
+      let name_decompose_app = constant_of_string "is_head" in
+      let name_decompose_forallT = constant_of_string "decompose_forallT" in
+      let name_decompose_forallP = constant_of_string "decompose_forallP" in
+      let name_decompose_app'' = constant_of_string "decompose_app''" in
+      let name_new_timer = constant_of_string "new_timer" in
+      let name_start_timer = constant_of_string "start_timer" in
+      let name_stop_timer = constant_of_string "stop_timer" in
+      let name_reset_timer = constant_of_string "reset_timer" in
+      let name_print_timer = constant_of_string "print_timer" in
+      let name_kind_of_term = constant_of_string "kind_of_term" in
+      let name_replace = constant_of_string "replace" in
+      let name_declare_mind = constant_of_string "declare_mind" in
+      let name_existing_instance = constant_of_string "existing_instance" in
+      let name_instantiate_evar = constant_of_string "instantiate_evar" in
 
-let name_raise = constant_of_string "raise'"
-(* let mkraise = mkconstr name_raise *)
-let israise = isconstant name_raise
 
-let name_fix1 = constant_of_string "fix1"
-(* let mkfix1 = mkconstr name_fix1 *)
-let isfix1 = isconstant name_fix1
 
-let name_fix2 = constant_of_string "fix2"
-(* let mkfix2 = mkconstr name_fix2 *)
-let isfix2 = isconstant name_fix2
-
-let name_fix3 = constant_of_string "fix3"
-(* let mkfix3 = mkconstr name_fix3 *)
-let isfix3 = isconstant name_fix3
-
-let name_fix4 = constant_of_string "fix4"
-(* let mkfix4 = mkconstr name_fix4 *)
-let isfix4 = isconstant name_fix4
-
-let name_fix5 = constant_of_string "fix5"
-(* let mkfix5 = mkconstr name_fix5 *)
-let isfix5 = isconstant name_fix5
-
-let name_is_var = constant_of_string "is_var"
-(* let mkis_var = mkconstr name_is_var *)
-let isis_var = isconstant name_is_var
-
-let name_nu = constant_of_string "nu"
-(* let mknu = mkconstr name_nu *)
-let isnu = isconstant name_nu
-
-let name_nu_let = constant_of_string "nu_let"
-let isnu_let = isconstant name_nu_let
-
-let name_abs_fun = constant_of_string "abs_fun"
-(* let mkabs_fun = mkconstr name_abs_fun *)
-let isabs_fun = isconstant name_abs_fun
-
-let name_abs_let = constant_of_string "abs_let"
-(* let mkabs_let = mkconstr name_abs_let *)
-let isabs_let = isconstant name_abs_let
-
-let name_abs_prod_prop = constant_of_string "abs_prod_prop"
-(* let mkabs_prod_prop = mkconstr name_abs_prod_prop *)
-let isabs_prod_prop = isconstant name_abs_prod_prop
-
-let name_abs_prod_type = constant_of_string "abs_prod_type"
-(* let mkabs_prod_type = mkconstr name_abs_prod_type *)
-let isabs_prod_type = isconstant name_abs_prod_type
-
-let name_abs_fix = constant_of_string "abs_fix"
-(* let mkabs_fix = mkconstr name_abs_fix *)
-let isabs_fix = isconstant name_abs_fix
-
-let name_get_binder_name = constant_of_string "get_binder_name"
-(* let mkget_binder_name = mkconstr name_get_binder_name *)
-let isget_binder_name = isconstant name_get_binder_name
-
-let name_remove = constant_of_string "remove"
-(* let mkremove = mkconstr name_remove *)
-let isremove = isconstant name_remove
-
-let name_gen_evar = constant_of_string "gen_evar"
-(* let mkgen_evar = mkconstr name_gen_evar *)
-let isgen_evar = isconstant name_gen_evar
-
-let name_is_evar = constant_of_string "is_evar"
-(* let mkis_evar = mkconstr name_is_evar *)
-let isis_evar = isconstant name_is_evar
-
-let name_hash = constant_of_string "hash"
-(* let mkhash = mkconstr name_hash *)
-let ishash = isconstant name_hash
-
-let name_solve_typeclasses = constant_of_string "solve_typeclasses"
-(* let mksolve_typeclasses = mkconstr name_solve_typeclasses *)
-let issolve_typeclasses = isconstant name_solve_typeclasses
-
-let name_print = constant_of_string "print"
-(* let mkprint = mkconstr name_print *)
-let isprint = isconstant name_print
-
-let name_pretty_print = constant_of_string "pretty_print"
-(* let mkpretty_print = mkconstr name_pretty_print *)
-let ispretty_print = isconstant name_pretty_print
-
-let name_hyps = constant_of_string "hyps"
-(* let mkhyps = mkconstr name_hyps *)
-let ishyps = isconstant name_hyps
-
-let name_destcase = constant_of_string "destcase"
-(* let mkdestcase = mkconstr name_destcase *)
-let isdestcase = isconstant name_destcase
-
-let name_constrs = constant_of_string "constrs"
-(* let mkconstrs = mkconstr name_constrs *)
-let isconstrs = isconstant name_constrs
-
-let name_makecase = constant_of_string "makecase"
-(* let mkmakecase = mkconstr name_makecase *)
-let ismakecase = isconstant name_makecase
-
-let name_unify = constant_of_string "unify_cnt"
-(* let mkunify = mkconstr name_unify *)
-let isunify = isconstant name_unify
-
-let name_unify_cumul = constant_of_string "unify_cumul_cnt"
-(* let mkunify_cumul = mkconstr name_unify_cumul *)
-let isunify_cumul = isconstant name_unify_cumul
-
-let name_get_reference = constant_of_string "get_reference"
-(* let mkget_reference = mkconstr name_get_reference *)
-let isget_reference = isconstant name_get_reference
-
-let name_get_var = constant_of_string "get_var"
-(* let mkget_var = mkconstr name_get_var *)
-let isget_var = isconstant name_get_var
-
-let name_call_ltac = constant_of_string "call_ltac"
-(* let mkcall_ltac = mkconstr name_call_ltac *)
-let iscall_ltac = isconstant name_call_ltac
-
-let name_list_ltac = constant_of_string "list_ltac"
-(* let mklist_ltac = mkconstr name_list_ltac *)
-let islist_ltac = isconstant name_list_ltac
-
-let name_read_line = constant_of_string "read_line"
-(* let mkread_line = mkconstr name_read_line *)
-let isread_line = isconstant name_read_line
-
-(* let name_break = constant_of_string "break"
- * (\* let mkbreak = mkconstr name_break *\)
- * let isbreak = isconstant name_break *)
-
-let name_decompose = constant_of_string "decompose"
-(* let mkdecompose = mkconstr name_decompose *)
-let isdecompose = isconstant name_decompose
-
-let name_solve_typeclass = constant_of_string "solve_typeclass"
-(* let mksolve_typeclass = mkconstr name_solve_typeclass *)
-let issolve_typeclass = isconstant name_solve_typeclass
-
-let name_declare = constant_of_string "declare"
-(* let mkdeclare = mkconstr name_declare *)
-let isdeclare = isconstant name_declare
-
-let name_declare_implicits = constant_of_string "declare_implicits"
-(* let mkdeclare_implicits = mkconstr name_declare_implicits *)
-let isdeclare_implicits = isconstant name_declare_implicits
-
-let name_os_cmd = constant_of_string "os_cmd"
-(* let mkos_cmd = mkconstr name_os_cmd *)
-let isos_cmd = isconstant name_os_cmd
-
-let name_get_debug_ex = constant_of_string "get_debug_exceptions"
-(* let mkget_debug_ex = mkconstr name_get_debug_ex *)
-let isget_debug_ex = isconstant name_get_debug_ex
-
-let name_set_debug_ex = constant_of_string "set_debug_exceptions"
-(* let mkset_debug_ex = mkconstr name_set_debug_ex *)
-let isset_debug_ex = isconstant name_set_debug_ex
-
-let name_get_trace = constant_of_string "get_trace"
-(* let mkget_trace = mkconstr name_get_trace *)
-let isget_trace = isconstant name_get_trace
-
-let name_set_trace = constant_of_string "set_trace"
-(* let mkset_trace = mkconstr name_set_trace *)
-let isset_trace = isconstant name_set_trace
-
-let name_decompose_app = constant_of_string "is_head"
-(* let mkdecompose_app = mkconstr name_decompose_app *)
-let isdecompose_app = isconstant name_decompose_app
-
-let name_decompose_forallT = constant_of_string "decompose_forallT"
-(* let mkdecompose_forallT = mkconstr name_decompose_forallT *)
-let isdecompose_forallT = isconstant name_decompose_forallT
-
-let name_decompose_forallP = constant_of_string "decompose_forallP"
-(* let mkdecompose_forallP = mkconstr name_decompose_forallP *)
-let isdecompose_forallP = isconstant name_decompose_forallP
-
-let name_decompose_app'' = constant_of_string "decompose_app''"
-(* let mkdecompose_app'' = mkconstr name_decompose_app'' *)
-let isdecompose_app'' = isconstant name_decompose_app''
-
-let name_new_timer = constant_of_string "new_timer"
-(* let mknew_timer = mkconstr name_new_timer *)
-let isnew_timer = isconstant name_new_timer
-
-let name_start_timer = constant_of_string "start_timer"
-(* let mkstart_timer = mkconstr name_start_timer *)
-let isstart_timer = isconstant name_start_timer
-
-let name_stop_timer = constant_of_string "stop_timer"
-(* let mkstop_timer = mkconstr name_stop_timer *)
-let isstop_timer = isconstant name_stop_timer
-
-let name_reset_timer = constant_of_string "reset_timer"
-(* let mkreset_timer = mkconstr name_reset_timer *)
-let isreset_timer = isconstant name_reset_timer
-
-let name_print_timer = constant_of_string "print_timer"
-(* let mkprint_timer = mkconstr name_print_timer *)
-let isprint_timer = isconstant name_print_timer
-
-let name_kind_of_term = constant_of_string "kind_of_term"
-(* let mkkind_of_term = mkconstr name_kind_of_term *)
-let iskind_of_term = isconstant name_kind_of_term
-
-let name_replace = constant_of_string "replace"
-let isreplace = isconstant name_replace
-
-let name_declare_mind = constant_of_string "declare_mind"
-let isdeclare_mind = isconstant name_declare_mind
-
-let name_existing_instance = constant_of_string "existing_instance"
-let isexisting_instance = isconstant name_existing_instance
-
-let name_instantiate_evar = constant_of_string "instantiate_evar"
-let isinstantiate_evar = isconstant name_instantiate_evar
-
+      let bindings =
+        [
+          (name_ret, MHead Mret);
+          (name_bind, MHead Mbind);
+          (name_try', MHead Mmtry');
+          (name_raise, MHead Mraise');
+          (name_fix1, MHead Mfix1);
+          (name_fix2, MHead Mfix2);
+          (name_fix3, MHead Mfix3);
+          (name_fix4, MHead Mfix4);
+          (name_fix5, MHead Mfix5);
+          (name_is_var, MHead Mis_var);
+          (name_nu, MHead Mnu);
+          (name_nu_let, MHead Mnu_let);
+          (name_abs_fun, MHead Mabs_fun);
+          (name_abs_let, MHead Mabs_let);
+          (name_abs_prod_type, MHead Mabs_prod_type);
+          (name_abs_prod_prop, MHead Mabs_prod_prop);
+          (name_abs_fix, MHead Mabs_fix);
+          (name_get_binder_name, MHead Mget_binder_name);
+          (name_remove, MHead Mremove);
+          (name_gen_evar, MHead Mgen_evar);
+          (name_is_evar, MHead Mis_evar);
+          (name_hash, MHead Mhash);
+          (name_solve_typeclasses, MHead Msolve_typeclasses);
+          (name_print, MHead Mprint);
+          (name_pretty_print, MHead Mpretty_print);
+          (name_hyps, MHead Mhyps);
+          (name_destcase, MHead Mdestcase);
+          (name_constrs, MHead Mconstrs);
+          (name_makecase, MHead Mmakecase);
+          (name_unify, MHead Munify);
+          (name_unify_cumul, MHead Munify_cumul);
+          (name_get_reference, MHead Mget_reference);
+          (name_get_var, MHead Mget_var);
+          (name_call_ltac, MHead Mcall_ltac);
+          (name_list_ltac, MHead Mlist_ltac);
+          (name_read_line, MHead Mread_line);
+          (name_decompose, MHead Mdecompose);
+          (name_solve_typeclass, MHead Msolve_typeclass);
+          (name_declare, MHead Mdeclare);
+          (name_declare_implicits, MHead Mdeclare_implicits);
+          (name_os_cmd, MHead Mos_cmd);
+          (name_get_debug_ex, MHead Mget_debug_exceptions);
+          (name_set_debug_ex, MHead Mset_debug_exceptions);
+          (name_get_trace, MHead Mget_trace);
+          (name_set_trace, MHead Mset_trace);
+          (name_decompose_app, MHead Mdecompose_app');
+          (name_decompose_forallT, MHead Mdecompose_forallT);
+          (name_decompose_forallP, MHead Mdecompose_forallP);
+          (name_decompose_app'', MHead Mdecompose_app'');
+          (name_new_timer, MHead Mnew_timer);
+          (name_start_timer, MHead Mstart_timer);
+          (name_stop_timer, MHead Mstop_timer);
+          (name_reset_timer, MHead Mreset_timer);
+          (name_print_timer, MHead Mprint_timer);
+          (name_kind_of_term, MHead Mkind_of_term);
+          (name_replace, MHead Mreplace);
+          (name_declare_mind, MHead Mdeclare_mind);
+          (name_existing_instance, MHead Mexisting_instance);
+          (name_instantiate_evar, MHead Minstantiate_evar);
+        ]
+      in
+      let bindings = List.map (fun (cst, bnd) -> Names.GlobRef.ConstRef cst, bnd) bindings in
+      Names.GlobRef.Map.of_list bindings
+    )
+end
 
 let mconstr_head_of h =
-  match h with
-  | _ when isret h ->
-      MHead Mret
-  | _ when isbind h ->
-      MHead Mbind
-  | _ when istry' h ->
-      MHead Mmtry'
-  | _ when israise h ->
-      MHead Mraise'
-  | _ when isfix1 h ->
-      MHead Mfix1
-  | _ when isfix2 h ->
-      MHead Mfix2
-  | _ when isfix3 h ->
-      MHead Mfix3
-  | _ when isfix4 h ->
-      MHead Mfix4
-  | _ when isfix5 h ->
-      MHead Mfix5
-  | _ when isis_var h ->
-      MHead Mis_var
-  | _ when isnu h ->
-      MHead Mnu
-  | _ when isnu_let h ->
-      MHead Mnu_let
-  | _ when isabs_fun h ->
-      MHead Mabs_fun
-  | _ when isabs_let h ->
-      MHead Mabs_let
-  | _ when isabs_prod_type h ->
-      MHead Mabs_prod_type
-  | _ when isabs_prod_prop h ->
-      MHead Mabs_prod_prop
-  | _ when isabs_fix h ->
-      MHead Mabs_fix
-  | _ when isget_binder_name h ->
-      MHead Mget_binder_name
-  | _ when isremove h ->
-      MHead Mremove
-  | _ when isgen_evar h ->
-      MHead Mgen_evar
-  | _ when isis_evar h ->
-      MHead Mis_evar
-  | _ when ishash h ->
-      MHead Mhash
-  | _ when issolve_typeclasses h ->
-      MHead Msolve_typeclasses
-  | _ when isprint h ->
-      MHead Mprint
-  | _ when ispretty_print h ->
-      MHead Mpretty_print
-  | _ when ishyps h ->
-      MHead Mhyps
-  | _ when isdestcase h ->
-      MHead Mdestcase
-  | _ when isconstrs h ->
-      MHead Mconstrs
-  | _ when ismakecase h ->
-      MHead Mmakecase
-  | _ when isunify h ->
-      MHead Munify
-  | _ when isunify_cumul h ->
-      MHead Munify_cumul
-  | _ when isget_reference h ->
-      MHead Mget_reference
-  | _ when isget_var h ->
-      MHead Mget_var
-  | _ when iscall_ltac h ->
-      MHead Mcall_ltac
-  | _ when islist_ltac h ->
-      MHead Mlist_ltac
-  | _ when isread_line h ->
-      MHead Mread_line
-  | _ when isdecompose h ->
-      MHead Mdecompose
-  | _ when issolve_typeclass h ->
-      MHead Msolve_typeclass
-  | _ when isdeclare h ->
-      MHead Mdeclare
-  | _ when isdeclare_implicits h ->
-      MHead Mdeclare_implicits
-  | _ when isos_cmd h ->
-      MHead Mos_cmd
-  | _ when isget_debug_ex h ->
-      MHead Mget_debug_exceptions
-  | _ when isset_debug_ex h ->
-      MHead Mset_debug_exceptions
-  | _ when isget_trace h ->
-      MHead Mget_trace
-  | _ when isset_trace h ->
-      MHead Mset_trace
-  | _ when isdecompose_app h ->
-      MHead Mdecompose_app'
-  | _ when isdecompose_forallT h ->
-      MHead Mdecompose_forallT
-  | _ when isdecompose_forallP h ->
-      MHead Mdecompose_forallP
-  | _ when isdecompose_app'' h ->
-      MHead Mdecompose_app''
-  | _ when isnew_timer h ->
-      MHead Mnew_timer
-  | _ when isstart_timer h ->
-      MHead Mstart_timer
-  | _ when isstop_timer h ->
-      MHead Mstop_timer
-  | _ when isreset_timer h ->
-      MHead Mreset_timer
-  | _ when isprint_timer h ->
-      MHead Mprint_timer
-  | _ when iskind_of_term h ->
-      MHead Mkind_of_term
-  | _ when isreplace h ->
-      MHead Mreplace
-  | _ when isdeclare_mind h ->
-      MHead Mdeclare_mind
-  | _ when isexisting_instance h ->
-      MHead Mexisting_instance
-  | _ when isinstantiate_evar h ->
-      MHead Minstantiate_evar
-  | _ -> raise Not_found
+  Names.GlobRef.Map.find (Names.GlobRef.ConstRef h) (Lazy.force ConstructorMap.map)
 
 let mconstr_head_opt h =
   match mconstr_head_of h with
