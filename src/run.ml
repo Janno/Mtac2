@@ -1566,7 +1566,7 @@ and eval ctxt (vms : vm list) ?(reduced_to_let=false) t =
               efail (E.mkReductionFailure sigma env l)
         else
           let e = (CClosure.usubs_cons v e) in
-          (eval[@tailcall]) ctxt vms (mk_red (FCLOS (bd, e)))
+          (eval_red[@tailcall]) backtrace stack (mk_red (FCLOS (bd, e)))
 
     | Monadic, FFlex (ConstKey (hc, u)) ->
         begin
